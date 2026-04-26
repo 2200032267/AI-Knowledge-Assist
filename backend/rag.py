@@ -7,6 +7,11 @@ from pypdf import PdfReader
 
 _VECTOR_STORE: list[dict] = []
 
+# Runtime-tunable defaults (used by /upload and /rag/reprocess)
+_RAG_CHUNK_SIZE: int = 900
+_RAG_CHUNK_OVERLAP: int = 120
+_RAG_TOP_K: int = 3
+
 
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"[a-zA-Z0-9]+", text.lower())
@@ -36,7 +41,7 @@ def _extract_pdf_text(file_path: Path) -> str:
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
-def _chunk_text(text: str, chunk_size: int = 900, overlap: int = 120) -> List[str]:
+def _chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
     chunks = []
     start = 0
 
@@ -48,11 +53,33 @@ def _chunk_text(text: str, chunk_size: int = 900, overlap: int = 120) -> List[st
     return chunks
 
 
-def process_pdf(file_path: Path) -> int:
+def set_rag_config(*, chunk_size: int | None = None, chunk_overlap: int | None = None, top_k: int | None = None) -> None:
+    global _RAG_CHUNK_SIZE, _RAG_CHUNK_OVERLAP, _RAG_TOP_K
+
+    if chunk_size is not None:
+        _RAG_CHUNK_SIZE = max(32, int(chunk_size))
+    if chunk_overlap is not None:
+        _RAG_CHUNK_OVERLAP = max(0, int(chunk_overlap))
+    if top_k is not None:
+        _RAG_TOP_K = max(1, int(top_k))
+
+
+def get_rag_config() -> dict:
+    return {
+        "chunk_size": _RAG_CHUNK_SIZE,
+        "chunk_overlap": _RAG_CHUNK_OVERLAP,
+        "top_k": _RAG_TOP_K,
+    }
+
+
+def process_pdf(file_path: Path, *, chunk_size: int | None = None, chunk_overlap: int | None = None) -> int:
     global _VECTOR_STORE
 
+    cs = int(chunk_size) if chunk_size is not None else _RAG_CHUNK_SIZE
+    co = int(chunk_overlap) if chunk_overlap is not None else _RAG_CHUNK_OVERLAP
+
     text = _extract_pdf_text(file_path)
-    chunks = _chunk_text(text)
+    chunks = _chunk_text(text, cs, co)
 
     _VECTOR_STORE = [{"text": c, "vector": _embed(c)} for c in chunks]
     return len(_VECTOR_STORE)
@@ -62,9 +89,11 @@ def has_documents() -> bool:
     return len(_VECTOR_STORE) > 0
 
 
-def retrieve_context(query: str, k: int = 3) -> str:
+def retrieve_context(query: str, k: int | None = None) -> str:
     if not _VECTOR_STORE:
         return ""
+
+    kk = int(k) if k is not None else _RAG_TOP_K
 
     query_vec = _embed(query)
 
@@ -74,10 +103,14 @@ def retrieve_context(query: str, k: int = 3) -> str:
         reverse=True
     )
 
-    return "\n\n".join(item["text"] for item in ranked[:k])
+    return "\n\n".join(item["text"] for item in ranked[:kk])
 
 
-def build_prompt(context: str, question: str) -> str:
+def build_prompt(context: str, question: str, template: str | None = None) -> str:
+    if template:
+        # Avoid str.format() so user text with braces doesn't crash.
+        return template.replace("{context}", context).replace("{question}", question)
+
     return f"""
 You are an AI assistant.
 Answer ONLY from the provided context.

@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Knowledge Assistant</title>
+<style>
+  :root {
+    --bg: #0D0D0D;
+    --bg-light: #151515;
+    --bg-lighter: #1E1E1E;
+    --text: #E8E8E8;
+    --text-muted: #9CA3AF;
+    --teal: #1ABC9C;
+    --teal-hover: #16A085;
+    --border: #2A2A2A;
+    --error: #EF4444;
+    --radius: 14px;
+    --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --blur: blur(20px) saturate(180%);
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Homepage Mockup */
+  .homepage {
+    min-height: 100vh;
+    transition: filter 0.3s ease;
+  }
+
+  .homepage.blurred {
+    filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    background: rgba(13, 13, 13, 0.8);
+    backdrop-filter: var(--blur);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1.25rem;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--teal), #0E8C7A);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover {
+    color: var(--text);
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .nav-btn:hover {
+    border-color: var(--teal);
+    background: rgba(26, 188, 156, 0.1);
+  }
+
+  .hero {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 6rem 2rem;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #fff, #9CA3AF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 0 auto 2.5rem;
+  }
+
+  .hero-btn {
+    background: var(--teal);
+    color: #0D0D0D;
+    padding: 0.875rem 2rem;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(26, 188, 156, 0.3);
+  }
+
+  .hero-btn:hover {
+    background: var(--teal-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(26, 188, 156, 0.4);
+  }
+
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13, 13, 13, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Modal */
+  .modal {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(21, 21, 21, 0.85);
+    backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    transform: scale(0.95) translateY(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .modal-overlay.active .modal {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal-content {
+    padding: 2rem;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+    line-height: 0;
+  }
+
+  .close-btn:hover {
+    background: var(--bg-lighter);
+    color: var(--text);
+  }
+
+  .modal-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .modal-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .modal-logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--teal), #0E8C7A);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.75rem 0;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .tab:hover {
+    color: var(--text);
+  }
+
+  .tab.active {
+    color: var(--teal);
+  }
+
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--teal);
+    border-radius: 2px 2px 0 0;
+  }
+
+  /* Forms */
+  .form-container {
+    display: none;
+  }
+
+  .form-container.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    font-family: var(--font);
+    transition: all 0.2s;
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.1);
+  }
+
+  .form-input.error {
+    border-color: var(--error);
+  }
+
+  .form-input.error:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  }
+
+  .error-text {
+    color: var(--error);
+    font-size: 0.8rem;
+    margin-top: 0.375rem;
+    display: none;
+  }
+
+  .error-text.show {
+    display: block;
+  }
+
+  .form-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--teal);
+    cursor: pointer;
+  }
+
+  .checkbox-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .link {
+    color: var(--teal);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .link:hover {
+    color: var(--teal-hover);
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--teal);
+    color: #0D0D0D;
+    border: none;
+    padding: 0.875rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1.5rem;
+  }
+
+  .btn-primary:hover {
+    background: var(--teal-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(26, 188, 156, 0.3);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .divider::before,
+  .divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .divider::before {
+    margin-right: 1rem;
+  }
+
+  .divider::after {
+    margin-left: 1rem;
+  }
+
+  .social-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .social-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .social-btn:hover {
+    border-color: var(--teal);
+    background: rgba(26, 188, 156, 0.05);
+  }
+
+  .terms {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    background: var(--bg-light);
+    border: 1px solid var(--teal);
+    color: var(--text);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 2000;
+    transform: translateX(400px);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .toast.show {
+    transform: translateX(0);
+  }
+
+  .toast-icon {
+    width: 20px;
+    height: 20px;
+    background: var(--teal);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .nav {
+      padding: 1rem;
+    }
+
+    .nav-links {
+      display: none;
+    }
+
+    .hero {
+      padding: 4rem 1rem;
+    }
+
+    .hero h1 {
+      font-size: 2.25rem;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+    }
+
+    .modal-content {
+      padding: 1.5rem;
+    }
+
+    .modal {
+      max-width: calc(100vw - 2rem);
+    }
+
+    .toast {
+      right: 1rem;
+      left: 1rem;
+      top: 1rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <!-- Homepage Background -->
+  <div class="homepage" id="homepage">
+    <header>
+      <nav class="nav">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+              <path d="M2 17l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </div>
+          <span>AI Knowledge Assistant</span>
+        </div>
+        <ul class="nav-links">
+          <li><a href="#">Features</a></li>
+          <li><a href="#">Pricing</a></li>
+          <li><a href="#">Docs</a></li>
+        </ul>
+        <button class="nav-btn" id="navLoginBtn">Sign In</button>
+      </nav>
+    </header>
+
+    <main class="hero">
+      <h1>Your AI-Powered<br>Knowledge Hub</h1>
+      <p>Organize, search, and chat with your documents. AI Knowledge Assistant transforms your data into actionable insights instantly.</p>
+      <button class="hero-btn" id="heroCta">Get Started Free</button>
+    </main>
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="close-btn" id="closeModal" aria-label="Close modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-logo">
+            <div class="modal-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+              </svg>
+            </div>
+          <h2 class="modal-title" id="modalTitle">Welcome to AI Knowledge Assistant</h2>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="signin">Sign In</button>
+          <button class="tab" data-tab="signup">Create Account</button>
+        </div>
+
+        <!-- Sign In Form -->
+        <form class="form-container active" id="signinForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="signinEmail">Email</label>
+            <input type="email" class="form-input" id="signinEmail" placeholder="you@example.com" required>
+            <span class="error-text" id="signinEmailError">Please enter a valid email address</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signinPassword">Password</label>
+            <input type="password" class="form-input" id="signinPassword" placeholder="••••••••" required>
+            <span class="error-text" id="signinPasswordError">Password must be at least 6 characters</span>
+          </div>
+
+          <div class="form-row">
+            <div class="checkbox-group">
+              <input type="checkbox" class="checkbox" id="rememberMe">
+              <label class="checkbox-label" for="rememberMe">Remember me</label>
+            </div>
+            <a href="#" class="link">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form class="form-container" id="signupForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="signupName">Name</label>
+            <input type="text" class="form-input" id="signupName" placeholder="John Doe" required>
+            <span class="error-text" id="signupNameError">Please enter your name</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signupEmail">Email</label>
+            <input type="email" class="form-input" id="signupEmail" placeholder="you@example.com" required>
+            <span class="error-text" id="signupEmailError">Please enter a valid email address</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signupPassword">Password</label>
+            <input type="password" class="form-input" id="signupPassword" placeholder="••••••••" required>
+            <span class="error-text" id="signupPasswordError">Password must be at least 6 characters</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="signupConfirm">Confirm Password</label>
+            <input type="password" class="form-input" id="signupConfirm" placeholder="••••••••" required>
+            <span class="error-text" id="signupConfirmError">Passwords do not match</span>
+          </div>
+
+          <button type="submit" class="btn-primary">Create Account</button>
+        </form>
+
+        <div class="divider">or continue with</div>
+
+        <div class="social-btns">
+          <button class="social-btn" id="googleBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#E8E8E8" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#E8E8E8" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#E8E8E8" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#E8E8E8" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Continue with Google
+          </button>
+          <button class="social-btn" id="githubBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#E8E8E8">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            Continue with GitHub
+          </button>
+        </div>
+
+        <p class="terms">By continuing you agree to <a href="#" class="link">Terms</a> and <a href="#" class="link">Privacy Policy</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <div class="toast-icon">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <span id="toastMessage">Welcome back!</span>
+  </div>
+
+<script>
+  const homepage = document.getElementById('homepage');
+  const authModal = document.getElementById('authModal');
+  const closeModal = document.getElementById('closeModal');
+  const tabs = document.querySelectorAll('.tab');
+  const signinForm = document.getElementById('signinForm');
+  const signupForm = document.getElementById('signupForm');
+  const navLoginBtn = document.getElementById('navLoginBtn');
+  const heroCta = document.getElementById('heroCta');
+  const toast = document.getElementById('toast');
+  const toastMessage = document.getElementById('toastMessage');
+
+  let pendingAction = null;
+
+  // Modal Controls
+  function openModal(callback = null) {
+    pendingAction = callback;
+    authModal.classList.add('active');
+    homepage.classList.add('blurred');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModalHandler() {
+    authModal.classList.remove('active');
+    homepage.classList.remove('blurred');
+    document.body.style.overflow = '';
+    resetForms();
+  }
+
+  // Handle protected actions
+  function requireAuth(action) {
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    if (!isLoggedIn) {
+      openModal(action);
+      return false;
+    }
+    action();
+    return true;
+  }
+
+  // Tab Switching
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      document.querySelectorAll('.form-container').forEach(form => {
+        form.classList.remove('active');
+      });
+      
+      document.getElementById(target + 'Form').classList.add('active');
+      resetErrors();
+    });
+  });
+
+  // Form Validation
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function showError(inputId, errorId, show = true) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(errorId);
+    if (show) {
+      input.classList.add('error');
+      error.classList.add('show');
+    } else {
+      input.classList.remove('error');
+      error.classList.remove('show');
+    }
+  }
+
+  function resetErrors() {
+    document.querySelectorAll('.form-input').forEach(input => {
+      input.classList.remove('error');
+    });
+    document.querySelectorAll('.error-text').forEach(error => {
+      error.classList.remove('show');
+    });
+  }
+
+  function resetForms() {
+    signinForm.reset();
+    signupForm.reset();
+    resetErrors();
+  }
+
+  // Toast
+  function showToast(message) {
+    toastMessage.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
+  }
+
+  // Handle Auth Success
+  function handleAuthSuccess(message) {
+    localStorage.setItem('isLoggedIn', 'true');
+    closeModalHandler();
+    showToast(message);
+    
+    if (pendingAction && typeof pendingAction === 'function') {
+      setTimeout(() => {
+        pendingAction();
+        pendingAction = null;
+      }, 300);
+    }
+  }
+
+  // Sign In Submit
+  signinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    resetErrors();
+    
+    const email = document.getElementById('signinEmail').value.trim();
+    const password = document.getElementById('signinPassword').value;
+    
+    let isValid = true;
+    
+    if (!validateEmail(email)) {
+      showError('signinEmail', 'signinEmailError');
+      isValid = false;
+    }
+    
+    if (password.length < 6) {
+      showError('signinPassword', 'signinPasswordError');
+      isValid = false;
+    }
+    
+    if (isValid) {
+      // Simulate API call
+      setTimeout(() => {
+        handleAuthSuccess('Welcome back!');
+      }, 500);
+    }
+  });
+
+  // Sign Up Submit
+  signupForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    resetErrors();
+    
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    
+    let isValid = true;
+    
+    if (name.length < 2) {
+      showError('signupName', 'signupNameError');
+      isValid = false;
+    }
+    
+    if (!validateEmail(email)) {
+      showError('signupEmail', 'signupEmailError');
+      isValid = false;
+    }
+    
+    if (password.length < 6) {
+      showError('signupPassword', 'signupPasswordError');
+      isValid = false;
+    }
+    
+    if (password !== confirm) {
+      showError('signupConfirm', 'signupConfirmError');
+      isValid = false;
+    }
+    
+    if (isValid) {
+      // Simulate API call
+      setTimeout(() => {
+        handleAuthSuccess('Account created successfully!');
+      }, 500);
+    }
+  });
+
+  // Social Auth
+  document.getElementById('googleBtn').addEventListener('click', () => {
+    handleAuthSuccess('Signed in with Google!');
+  });
+
+  document.getElementById('githubBtn').addEventListener('click', () => {
+    handleAuthSuccess('Signed in with GitHub!');
+  });
+
+  // Event Listeners
+  closeModal.addEventListener('click', closeModalHandler);
+  
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) {
+      closeModalHandler();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && authModal.classList.contains('active')) {
+      closeModalHandler();
+    }
+  });
+
+  navLoginBtn.addEventListener('click', () => openModal());
+  
+  // Protected action example
+  heroCta.addEventListener('click', () => {
+    requireAuth(() => {
+      alert('Launching AI Knowledge Assistant...');
+    });
+  });
+
+  // Clear error on input
+  document.querySelectorAll('.form-input').forEach(input => {
+    input.addEventListener('input', () => {
+      if (input.classList.contains('error')) {
+        input.classList.remove('error');
+        const errorId = input.id + 'Error';
+        const errorEl = document.getElementById(errorId);
+        if (errorEl) errorEl.classList.remove('show');
+      }
+    });
+  });
+</script>
+</body>
+</html>

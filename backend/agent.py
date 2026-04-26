@@ -1,4 +1,7 @@
-from llm import call_llm
+try:
+    from .llm import call_llm
+except ImportError:  # Allows running from inside backend/
+    from llm import call_llm
 
 ACTION_HINTS = {
     "summarize": "Summarize the key ideas in the following context as concise bullet points.",

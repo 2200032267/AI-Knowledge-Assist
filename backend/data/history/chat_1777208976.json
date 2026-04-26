@@ -1,0 +1,18 @@
+{
+  "id": "chat_1777208976",
+  "title": "Document removed. You can upload a new d",
+  "mode": "chat",
+  "doc_id": null,
+  "doc_name": null,
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Document removed. You can upload a new document to chat about it."
+    },
+    {
+      "role": "assistant",
+      "content": "Chat mode activated."
+    }
+  ],
+  "updated_at": "2026-04-26T18:39:36"
+}

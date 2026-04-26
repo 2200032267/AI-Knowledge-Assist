@@ -1,567 +1,945 @@
-<<<<<<< HEAD
-import { useState, useRef, useEffect } from "react";
-import { Upload, Send, FileText, MessageSquare, Bot, Sparkles, Loader as Loader2, X, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Trash2, Plus, BookOpen, Zap } from "lucide-react";
-import { supabase } from "./lib/supabase";
-=======
-import { useState } from "react";
->>>>>>> 54d6e8e (css app  files)
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import NewChatButton from "./components/NewChatButton";
+import SettingsPage from "./views/SettingsPage";
+import LandingPage from "./views/LandingPage";
+import { DEFAULT_SETTINGS } from "./defaultSettings";
+import {
+  getCurrentUserFromSession,
+  getSession,
+  logoutUserSession,
+} from "./auth";
 
-const API = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
-const MODES = [
-  { id: "document", label: "Document Q&A", icon: FileText, description: "Ask questions about your uploaded PDF" },
-  { id: "general", label: "General Chat", icon: MessageSquare, description: "Chat with the AI assistant" },
-  { id: "agent", label: "Smart Actions", icon: Zap, description: "Summarize, generate notes, or explain" },
+const NAV_ITEMS = [
+  { id: "chat", label: "Chat", mode: "chat" },
+  { id: "saved", label: "Saved Docs" },
+  { id: "document", label: "Document Mode", mode: "document" },
+  { id: "general", label: "General Mode", mode: "general" },
+  { id: "agent", label: "Agent Actions", mode: "agent" },
+  { id: "history", label: "History" },
 ];
 
-const AGENT_HINTS = ["summarize", "notes", "explain"];
+const EXAMPLE_CARDS = [
+  {
+    title: "Examples",
+    cards: [
+      { prompt: "Upload research.pdf and ask: What is this about?", text: '"Upload research.pdf and ask: What is this about?"' },
+      { prompt: "Summarize this document in 5 bullet points", text: '"Summarize this document in 5 bullet points"' },
+      { prompt: "Generate study notes from chapter 3", text: '"Generate study notes from chapter 3"' },
+    ],
+  },
+  {
+    title: "Capabilities",
+    cards: [
+      { prompt: "Explain RAG-powered answers from my PDFs", text: '"RAG-powered answers from your PDFs"' },
+      { prompt: "How do you prevent hallucinations?", text: '"Zero hallucination with guardrail prompts"' },
+      { prompt: "What agent actions can you perform?", text: '"Rule-based agent: summarize, notes, key points"' },
+    ],
+  },
+  {
+    title: "RAG Features",
+    cards: [
+      { prompt: "Explain text chunking and vector embeddings", text: '"Text chunking + vector embeddings"' },
+      { prompt: "What are the API endpoints?", text: '"FastAPI backend with /upload /ask /chat /agent"' },
+      { prompt: "Switch to Document Chat mode", text: '"Switch between Document Chat & General Chat"' },
+    ],
+  },
+];
+
+const QUICK_ACTIONS = [
+  { id: "summarize", label: "Summarize", prompt: "Summarize this document in 5 bullet points" },
+  { id: "notes", label: "Generate Notes", prompt: "Generate study notes from this document" },
+  { id: "keypoints", label: "Key Points", prompt: "Extract the key points from this document" },
+];
+
+
+function IconPlus() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+  );
+}
+
+function IconBookmark() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+    </svg>
+  );
+}
+
+function IconFile() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+    </svg>
+  );
+}
+
+function IconFileText() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+      <polyline points="14 2 14 8 20 8"></polyline>
+      <line x1="16" y1="13" x2="8" y2="13"></line>
+      <line x1="16" y1="17" x2="8" y2="17"></line>
+      <line x1="10" y1="9" x2="8" y2="9"></line>
+    </svg>
+  );
+}
+
+function IconGlobe() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="2" y1="12" x2="22" y2="12"></line>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+    </svg>
+  );
+}
+
+function IconBolt() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    </svg>
+  );
+}
+
+function IconClock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="12 6 12 12 16 14"></polyline>
+    </svg>
+  );
+}
+
+function IconSettings() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M12 1v6m0 6v6m8.66-15.34l-4.24 4.24m-8.84 0L3.34 3.34m15.32 15.32l-4.24-4.24m-8.84 0l-4.24 4.24"></path>
+    </svg>
+  );
+}
+
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+      <polyline points="16 17 21 12 16 7"></polyline>
+      <line x1="21" y1="12" x2="9" y2="12"></line>
+    </svg>
+  );
+}
+
+function IconLayers() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+      <path d="M2 17l10 5 10-5"></path>
+      <path d="M2 12l10 5 10-5"></path>
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="17 8 12 3 7 8"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
+    </svg>
+  );
+}
+
+function IconMic() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+      <line x1="12" y1="19" x2="12" y2="23"></line>
+      <line x1="8" y1="23" x2="16" y2="23"></line>
+    </svg>
+  );
+}
+
+function IconSend() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="22" y1="2" x2="11" y2="13"></line>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  );
+}
+
+
+function navIconById(id) {
+  switch (id) {
+    case "chat":
+      return <IconChat />;
+    case "saved":
+      return <IconBookmark />;
+    case "document":
+      return <IconFileText />;
+    case "general":
+      return <IconGlobe />;
+    case "agent":
+      return <IconBolt />;
+    case "history":
+      return <IconClock />;
+    default:
+      return <IconChat />;
+  }
+}
+
+
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
-<<<<<<< HEAD
-  const [mode, setMode] = useState("document");
-  const [sessions, setSessions] = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentMode, setCurrentMode] = useState("chat");
+  const [uploadedDoc, setUploadedDoc] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState(null);
-  const [docLoaded, setDocLoaded] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const messagesEndRef = useRef(null);
+  const [sending, setSending] = useState(false);
+  const [agentState, setAgentState] = useState(null);
+  const [activeView, setActiveView] = useState("chat");
+  const [toast, setToast] = useState(null);
+
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+
+  const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const userId = currentUser?.id || null;
+
+  const userCache = useMemo(() => {
+    try {
+      return JSON.parse(window.sessionStorage.getItem("user_cache") || "{}");
+    } catch {
+      return {};
+    }
+  }, [currentUser]);
+
+  const userName = userCache?.name || currentUser?.name || "Your Name";
+  const userEmail = userCache?.email || currentUser?.email || "your.email@example.com";
+
+  const userInitials = useMemo(() => {
+    const raw = String(userName || "").trim();
+    if (!raw) return "U";
+    const parts = raw.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] || "U";
+    const b = parts.length > 1 ? parts[1]?.[0] : parts[0]?.[1];
+    return `${a}${b || ""}`.toUpperCase();
+  }, [userName]);
+
+  const showEmptyState = activeView === "chat" && messages.length === 0;
+  const showChat = activeView === "chat" && messages.length > 0;
+  const hasUnsavedMessages = messages.length > 0;
+
+  const navModeLabel = useMemo(() => {
+    if (activeView === "settings") return "Settings";
+    const item = NAV_ITEMS.find((i) => i.mode === currentMode);
+    return item?.label || "Chat";
+  }, [currentMode, activeView]);
+
+  const inputPlaceholder = useMemo(() => {
+    if (currentMode === "document") {
+      return uploadedDoc ? `Ask a question about ${uploadedDoc}` : "Upload a PDF to start";
+    }
+    if (currentMode === "general") return "Ask me anything...";
+    if (currentMode === "agent") return "Ask an agent action about your document...";
+    return "Ask about your document or start general chat...";
+  }, [currentMode, uploadedDoc]);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    window.setTimeout(() => {
+      setToast(null);
+    }, 2500);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const handleLogout = (reason) => {
+    logoutUserSession();
+    setCurrentUser(null);
+    setShowLogin(false);
+    setActiveView("chat");
+    setMessages([]);
+    setUploadedDoc(null);
+    setCurrentMode("chat");
+    setInput("");
+    if (reason) showToast("error", reason);
+  };
 
+  const requireValidSession = () => {
+    const s = getSession();
+    if (!s) {
+      handleLogout("Session expired. Please log in again.");
+      return null;
+    }
+    return s;
+  };
+
+  // Check session on mount.
   useEffect(() => {
-    loadSessions();
-    checkDocumentStatus();
+    const user = getCurrentUserFromSession();
+    if (user) {
+      setCurrentUser(user);
+      setShowLogin(false);
+      return;
+    }
+    // No session -> show landing. (Modal opens from landing CTA)
+    setCurrentUser(null);
+    setShowLogin(true);
   }, []);
 
-  const loadSessions = async () => {
-    const { data } = await supabase
-      .from("chat_sessions")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    if (data) setSessions(data);
-  };
+  // Restore per-user mode + doc when user logs in.
+  useEffect(() => {
+    if (!userId) return;
 
-  const loadMessages = async (sessionId) => {
-    const { data } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: true });
-    if (data) setMessages(data);
-  };
+    const savedDocName =
+      window.localStorage.getItem(`uploadedDocName_${userId}`) ||
+      window.localStorage.getItem("uploadedDocName");
 
-  const checkDocumentStatus = async () => {
-    try {
-      const res = await fetch(`${API}/health`);
-      const data = await res.json();
-      setDocLoaded(data.documents_loaded);
-    } catch {
-      setDocLoaded(false);
+    if (savedDocName) setUploadedDoc(savedDocName);
+
+    const savedMode =
+      window.localStorage.getItem(`currentMode_${userId}`) ||
+      window.localStorage.getItem("currentMode");
+
+    if (savedMode) {
+      if (savedMode === "document" && !savedDocName) {
+        setCurrentMode("general");
+      } else {
+        setCurrentMode(savedMode);
+      }
     }
+  }, [userId]);
+
+  // Persist mode
+  useEffect(() => {
+    if (!userId) return;
+    window.localStorage.setItem(`currentMode_${userId}`, currentMode);
+  }, [currentMode, userId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, sending]);
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
   };
 
-  const createSession = async (newMode) => {
-    const { data } = await supabase
-      .from("chat_sessions")
-      .insert({ mode: newMode, title: "New Chat" })
-      .select()
-      .single();
-    if (data) {
-      setSessions((prev) => [data, ...prev]);
-      setActiveSession(data);
-      setMessages([]);
-      return data;
+  const scrollChatToBottom = () => {
+    setTimeout(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  const focusInputIfMessagesExist = () => {
+    if (messages.length === 0) return;
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
+
+  const handleChatNavClick = () => {
+    // Spec: navigation only, no reset, no API.
+    if (activeView === "chat") {
+      scrollChatToBottom();
+      focusInputIfMessagesExist();
+      return;
     }
-    return null;
+
+    setActiveView("chat");
+    closeSidebar();
+    scrollChatToBottom();
+    focusInputIfMessagesExist();
   };
 
-  const deleteSession = async (sessionId) => {
-    await supabase.from("chat_messages").delete().eq("session_id", sessionId);
-    await supabase.from("chat_sessions").delete().eq("id", sessionId);
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-    if (activeSession?.id === sessionId) {
-      setActiveSession(null);
-      setMessages([]);
+  const handleSettingsNavClick = () => {
+    if (activeView === "settings") {
+      closeSidebar();
+      return;
     }
+    setActiveView("settings");
+    closeSidebar();
   };
 
-  const selectSession = (session) => {
-    setActiveSession(session);
-    setMode(session.mode);
-    loadMessages(session.id);
+  const autoResize = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   };
 
-  const saveMessage = async (sessionId, role, content) => {
-    await supabase.from("chat_messages").insert({
-      session_id: sessionId,
-      role,
-      content,
-=======
-  const [file, setFile] = useState(null);
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+  const addMessage = (role, text) => {
+    setMessages((prev) => [...prev, { role, text }]);
+  };
 
-  const uploadFile = async () => {
-    if (!file) return alert("Select a file first");
+  const handleNewChat = async () => {
+    if (!requireValidSession()) return;
+    // Spec: reset conversation, NOT mode or uploaded document.
+    // Best-effort: save chat history if there were messages.
+    const hadMessages = messages.length > 0;
 
-    const formData = new FormData();
-    formData.append("file", file);
+    if (hadMessages) {
+      try {
+        const title = (messages.find((m) => m.role === "user")?.text || messages[0]?.text || "")
+          .slice(0, 40);
 
-    await fetch(`${API}/upload`, {
-      method: "POST",
-      body: formData,
->>>>>>> 54d6e8e (css app  files)
+        const historyEntry = {
+          id: `chat_${Date.now()}`,
+          title,
+          mode: currentMode,
+          doc_name: uploadedDoc || null,
+          messages: messages.map((m) => ({ role: m.role, content: m.text })),
+          updated_at: new Date().toISOString(),
+        };
+
+        try {
+          const key = `history_${userId}`;
+          const existing = JSON.parse(window.localStorage.getItem(key) || "[]");
+          window.localStorage.setItem(key, JSON.stringify([historyEntry, ...existing].slice(0, 50)));
+        } catch {
+          // ignore local persistence errors
+        }
+
+        await fetch(`${API_BASE}/history/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            mode: currentMode,
+            doc_id: null,
+            doc_name: uploadedDoc || null,
+            messages: messages.map((m) => ({ role: m.role, content: m.text })),
+          }),
+        });
+      } catch {
+        // Still reset chat if saving fails (spec)
+      }
+    }
+
+    setMessages([]);
+    setAgentState(null);
+    setActiveView("chat");
+    closeSidebar();
+    setInput("");
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.focus();
+      }
     });
-
-    alert("File uploaded!");
   };
 
-<<<<<<< HEAD
-  const updateSessionTitle = async (sessionId, title) => {
-    await supabase
-      .from("chat_sessions")
-      .update({ title, updated_at: new Date().toISOString() })
-      .eq("id", sessionId);
-=======
-  const askQuestion = async () => {
-    const res = await fetch(`${API}/ask`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ question }),
+  const setMode = (mode) => {
+    // Mode switcher. Does not clear chat.
+    if (mode === "document") {
+      if (currentMode === "document") return;
+      if (!uploadedDoc) {
+        showToast("error", "Upload a PDF first to use Document Mode");
+        return;
+      }
+      setCurrentMode("document");
+      setActiveView("chat");
+      closeSidebar();
+      showToast("success", `Document Mode: Using ${uploadedDoc}`);
+      return;
+    }
+
+    if (mode === "general") {
+      if (currentMode === "general") return;
+      setCurrentMode("general");
+      setActiveView("chat");
+      closeSidebar();
+      showToast("success", "General Mode activated");
+      return;
+    }
+
+    if (mode === "agent") {
+      if (!uploadedDoc) {
+        showToast("error", "Upload a PDF first to use Agent Actions");
+        return;
+      }
+      if (currentMode === "agent") {
+        setActiveView("chat");
+        closeSidebar();
+        return;
+      }
+      // Agent actions are document-backed in this app.
+      setCurrentMode("agent");
+      setActiveView("chat");
+      closeSidebar();
+      showToast("success", "Agent Actions activated");
+      return;
+    }
+
+    setCurrentMode(mode);
+    closeSidebar();
+    setActiveView("chat");
+
+    if (messages.length > 0) {
+      const modeText = {
+        document: "Document Chat mode activated. Upload a document to get started.",
+        general: "General Chat mode activated. Ask me anything!",
+        chat: "Chat mode activated.",
+        agent: "Agent Actions mode activated. Try: summarize, notes, or explain.",
+      };
+      addMessage("assistant", modeText[mode] || modeText.chat);
+    }
+  };
+
+  const onCardClick = (prompt) => {
+    setInput(prompt);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      autoResize();
     });
-
-    const data = await res.json();
-    setAnswer(data.answer);
->>>>>>> 54d6e8e (css app  files)
   };
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const uploadDocument = async (file) => {
+    if (!requireValidSession()) return;
     if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      addMessage("assistant", "Only PDF files are supported right now.");
+      return;
+    }
 
-    setUploadStatus({ type: "loading", message: "Uploading and processing PDF..." });
-
+    setSending(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
 
-      const res = await fetch(`${API}/upload`, { method: "POST", body: fd });
-      const data = await res.json();
-
-      if (res.ok) {
-        setUploadStatus({ type: "success", message: `Uploaded "${file.name}" — ${data.chunks} chunks processed` });
-        setDocLoaded(true);
-
-        await supabase.from("uploaded_documents").insert({
-          filename: file.name,
-          chunk_count: data.chunks,
-        });
-      } else {
-        setUploadStatus({ type: "error", message: data.detail || "Upload failed" });
+      const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: fd });
+      const data = await safeJson(res);
+      if (!res.ok) {
+        addMessage("assistant", data?.detail || "Upload failed.");
+        return;
       }
-    } catch {
-      setUploadStatus({ type: "error", message: "Could not connect to server" });
-    }
 
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    setTimeout(() => setUploadStatus(null), 5000);
+      const name = data?.filename || file.name;
+      setUploadedDoc(name);
+      window.localStorage.setItem(`uploadedDocName_${userId}`, name);
+
+      // Persist a lightweight docs list for Settings/Data view.
+      try {
+        const key = `docs_${userId}`;
+        const existing = JSON.parse(window.localStorage.getItem(key) || "[]");
+        const entry = {
+          filename: name,
+          original_name: file.name,
+          size_bytes: file.size,
+          uploaded_at: new Date().toISOString(),
+        };
+        const next = [entry, ...existing.filter((d) => d.filename !== name)].slice(0, 50);
+        window.localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        // ignore localStorage failures
+      }
+
+      setCurrentMode("document");
+      addMessage(
+        "assistant",
+        `Document "${name}" uploaded successfully. You can now ask questions about it or use the quick actions above.`
+      );
+    } catch {
+      addMessage("assistant", "Upload failed (server error).");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const removeDocument = () => {
+    setUploadedDoc(null);
+    if (userId) window.localStorage.removeItem(`uploadedDocName_${userId}`);
+    if (currentMode === "document" || currentMode === "agent") {
+      setCurrentMode("general");
+      showToast("error", "Document removed, switched to General Mode");
+    }
+    addMessage("assistant", "Document removed. You can upload a new document to chat about it.");
   };
 
   const sendMessage = async () => {
+    if (!requireValidSession()) return;
     const text = input.trim();
-    if (!text || isLoading) return;
+    if (!text || sending) return;
 
-    let session = activeSession;
-    if (!session) {
-      session = await createSession(mode);
-      if (!session) return;
-    }
-
-    const userMsg = { id: Date.now(), session_id: session.id, role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    addMessage("user", text);
     setInput("");
-    setIsLoading(true);
-
-    saveMessage(session.id, "user", text);
-
-    if (messages.length === 0) {
-      const title = text.length > 40 ? text.slice(0, 40) + "..." : text;
-      updateSessionTitle(session.id, title);
-      setSessions((prev) =>
-        prev.map((s) => (s.id === session.id ? { ...s, title } : s))
-      );
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
     }
 
+    setSending(true);
     try {
-      let res;
-      if (mode === "document") {
-        res = await fetch(`${API}/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: text }),
-        });
-      } else if (mode === "general") {
-        res = await fetch(`${API}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: text }),
-        });
+      let endpoint = "chat";
+      let payload = { question: text };
+
+      if (currentMode === "document") {
+        endpoint = "ask";
+      } else if (currentMode === "agent") {
+        endpoint = "agent";
+        payload = { question: text, context: "" };
       } else {
-        res = await fetch(`${API}/agent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: text }),
-        });
+        endpoint = "chat";
       }
 
-      const data = await res.json();
-      const assistantContent = data.answer || "No response received.";
+      const res = await fetch(`${API_BASE}/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      const assistantMsg = {
-        id: Date.now() + 1,
-        session_id: session.id,
-        role: "assistant",
-        content: assistantContent,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-      saveMessage(session.id, "assistant", assistantContent);
+      const data = await safeJson(res);
+      if (!res.ok) {
+        addMessage("assistant", data?.detail || "Request failed.");
+        return;
+      }
+
+      addMessage("assistant", data?.answer || "I don't know");
     } catch {
-      const errorMsg = {
-        id: Date.now() + 1,
-        session_id: session.id,
-        role: "assistant",
-        content: "Could not connect to the server. Make sure the backend is running.",
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    }
-
-    setIsLoading(false);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+      addMessage("assistant", "Server error.");
+    } finally {
+      setSending(false);
     }
   };
-
-  const switchMode = (newMode) => {
-    setMode(newMode);
-    setActiveSession(null);
-    setMessages([]);
-  };
-
-  const currentModeConfig = MODES.find((m) => m.id === mode);
 
   return (
-<<<<<<< HEAD
-    <div className="app-layout">
-      {/* Sidebar */}
-      <aside className={`sidebar ${sidebarOpen ? "open" : "closed"}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <Bot size={22} />
-            <span>Knowledge AI</span>
-          </div>
-          <button className="sidebar-toggle" onClick={() => setSidebarOpen(false)}>
-            <X size={18} />
-          </button>
+    <>
+      {toast && (
+        <div className={`toast toast-${toast.type}`} role="status" aria-live="polite">
+          {toast.message}
         </div>
+      )}
 
-        <button
-          className="new-chat-btn"
-          onClick={() => {
-            setActiveSession(null);
-            setMessages([]);
+      {!currentUser ? (
+        <LandingPage
+          apiBase={API_BASE}
+          defaultSettings={DEFAULT_SETTINGS}
+          showLogin={showLogin}
+          setShowLogin={setShowLogin}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            setShowLogin(false);
+            showToast("success", `Welcome, ${user.name}`);
           }}
-        >
-          <Plus size={18} />
-          New Chat
-        </button>
-
-        <div className="sidebar-section">
-          <h3 className="sidebar-section-title">Chat History</h3>
-          <div className="session-list">
-            {sessions.length === 0 && (
-              <p className="no-sessions">No conversations yet</p>
-            )}
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                className={`session-item ${activeSession?.id === session.id ? "active" : ""}`}
-                onClick={() => selectSession(session)}
-              >
-                <div className="session-item-content">
-                  <span className="session-mode-badge">{session.mode}</span>
-                  <span className="session-title">{session.title}</span>
+          onToast={showToast}
+        />
+      ) : (
+        <div className="app-container">
+          <aside className={`sidebar ${sidebarOpen ? "active" : ""}`} id="sidebar">
+            <div className="sidebar-header">
+              <div className="user-profile">
+                <div className="avatar">{userInitials}</div>
+                <div className="user-info">
+                  <div className="user-name">{userName}</div>
+                  <div className="user-email">{userEmail}</div>
                 </div>
-                <button
-                  className="session-delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSession(session.id);
-                  }}
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
-            ))}
-          </div>
-        </div>
-      </aside>
+              <NewChatButton
+                disabled={messages.length === 0 && activeView === "chat"}
+                onClick={handleNewChat}
+              />
+            </div>
 
-      {/* Main Content */}
-      <main className="main-content">
-        {/* Top Bar */}
-        <header className="top-bar">
-          <button
-            className="sidebar-open-btn"
-            onClick={() => setSidebarOpen(true)}
-            style={{ display: sidebarOpen ? "none" : "flex" }}
-          >
-            <BookOpen size={18} />
-          </button>
+            <nav className="sidebar-nav">
+              {NAV_ITEMS.map((item) => {
+                const active = item.id === "chat" ? activeView === "chat" : item.mode && item.mode === currentMode;
 
-          <div className="mode-switcher">
-            {MODES.map((m) => {
-              const Icon = m.icon;
-              return (
-                <button
-                  key={m.id}
-                  className={`mode-btn ${mode === m.id ? "active" : ""}`}
-                  onClick={() => switchMode(m.id)}
-                >
-                  <Icon size={16} />
-                  <span>{m.label}</span>
-                </button>
-              );
-            })}
-          </div>
+                const isDocumentMode = item.id === "document";
+                const isGeneralMode = item.id === "general";
+                const isAgentMode = item.id === "agent";
 
-          <div className="upload-area">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleUpload}
-              className="file-input-hidden"
-            />
-            <button
-              className="upload-btn"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload size={16} />
-              <span>Upload PDF</span>
-            </button>
-            {docLoaded && (
-              <span className="doc-status loaded">
-                <CheckCircle size={14} />
-                Doc loaded
-              </span>
-            )}
-          </div>
-        </header>
+                const isDisabled =
+                  (isDocumentMode && !uploadedDoc) ||
+                  (isAgentMode && !uploadedDoc);
 
-        {/* Upload Status Toast */}
-        {uploadStatus && (
-          <div className={`toast toast-${uploadStatus.type}`}>
-            {uploadStatus.type === "loading" && <Loader2 size={16} className="spin" />}
-            {uploadStatus.type === "success" && <CheckCircle size={16} />}
-            {uploadStatus.type === "error" && <AlertCircle size={16} />}
-            <span>{uploadStatus.message}</span>
-          </div>
-        )}
+                const title = isDisabled && isDocumentMode ? "Upload a PDF first" : "";
 
-        {/* Chat Area */}
-        <div className="chat-area">
-          {messages.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                {mode === "document" && <FileText size={40} />}
-                {mode === "general" && <MessageSquare size={40} />}
-                {mode === "agent" && <Sparkles size={40} />}
-              </div>
-              <h2 className="empty-title">{currentModeConfig?.label}</h2>
-              <p className="empty-description">{currentModeConfig?.description}</p>
-
-              {mode === "document" && !docLoaded && (
-                <div className="empty-action">
+                return (
                   <button
-                    className="action-btn primary"
-                    onClick={() => fileInputRef.current?.click()}
+                    key={item.id}
+                    className={`nav-item ${active ? "active" : ""} ${isDisabled ? "disabled" : ""}`}
+                    disabled={isDisabled}
+                    title={title}
+                    onClick={() => {
+                      if (item.id === "chat") {
+                        handleChatNavClick();
+                        return;
+                      }
+                      if (item.mode) setMode(item.mode);
+                    }}
                   >
-                    <Upload size={18} />
-                    Upload a PDF to get started
+                    {navIconById(item.id)}
+                    {item.label}
+                    {item.id === "chat" && hasUnsavedMessages && activeView !== "chat" ? (
+                      <div className="nav-badge-dot" aria-label="unsaved messages" />
+                    ) : null}
+
+                    {isDocumentMode && currentMode === "document" && uploadedDoc ? (
+                      <span className="nav-pill" title={uploadedDoc}>
+                        {uploadedDoc}
+                      </span>
+                    ) : null}
                   </button>
+                );
+              })}
+
+              <div className="nav-divider"></div>
+
+              <button className={`nav-item ${activeView === "settings" ? "active" : ""}`} onClick={handleSettingsNavClick}>
+                <IconSettings />
+                Settings
+              </button>
+              <button
+                className="nav-item"
+                onClick={() => {
+                  showToast("success", "Logged out");
+                  handleLogout();
+                }}
+              >
+                <IconLogout />
+                Log Out
+              </button>
+            </nav>
+          </aside>
+
+          <div
+            className={`sidebar-overlay ${sidebarOpen ? "active" : ""}`}
+            onClick={closeSidebar}
+            id="overlay"
+          />
+
+          <main className="main-content">
+            <div className="mobile-header">
+              <button
+                className="hamburger"
+                onClick={() => setSidebarOpen((v) => !v)}
+                id="hamburger"
+                aria-label="Open menu"
+              >
+                <span></span>
+                <span></span>
+                <span></span>
+              </button>
+              <div className="mobile-title">{navModeLabel}</div>
+            </div>
+
+            <div className="content-area">
+              {activeView === "settings" && (
+                <SettingsPage
+                  apiBase={API_BASE}
+                  userId={userId}
+                  uploadedDocName={uploadedDoc}
+                  onClose={() => {
+                    setActiveView("chat");
+                    scrollChatToBottom();
+                    focusInputIfMessagesExist();
+                  }}
+                  onToast={(type, message) => showToast(type, message)}
+                  onProfileChanged={(profile) => {
+                    try {
+                      const next = { name: profile?.name || userName, email: userEmail };
+                      window.sessionStorage.setItem("user_cache", JSON.stringify(next));
+                    } catch {
+                      // ignore
+                    }
+                    setCurrentUser((prev) => (prev ? { ...prev, name: profile?.name || prev.name } : prev));
+                  }}
+                />
+              )}
+
+              {showEmptyState && (
+                <div className="empty-state" id="emptyState">
+                  <div className="logo-section">
+                    <div className="logo-icon">
+                      <IconLayers />
+                    </div>
+                    <h1 className="welcome-title">Welcome to AI Knowledge Assistant</h1>
+                    <p className="welcome-subtitle">Upload files, ask questions, get answers from your documents</p>
+                  </div>
+
+                  <div className="cards-grid">
+                    {EXAMPLE_CARDS.map((col) => (
+                      <div className="card-column" key={col.title}>
+                        <div className="card-title">{col.title}</div>
+                        {col.cards.map((c) => (
+                          <div
+                            key={c.text}
+                            className="card"
+                            onClick={() => onCardClick(c.prompt)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") onCardClick(c.prompt);
+                            }}
+                          >
+                            {c.text}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {mode === "agent" && (
-                <div className="agent-hints">
-                  {AGENT_HINTS.map((hint) => (
-                    <button
-                      key={hint}
-                      className="hint-chip"
-                      onClick={() => setInput(`${hint} `)}
+              {showChat && (
+                <div className="chat-container active" id="chatContainer">
+                  {messages.map((m, idx) => (
+                    <div
+                      key={`${m.role}-${idx}`}
+                      className={`message ${m.role === "user" ? "user-message" : "assistant-message"}`}
                     >
-                      {hint}
+                      <div className="message-avatar">{m.role === "user" ? userInitials : "AI"}</div>
+                      <div className="message-content">{m.text}</div>
+                    </div>
+                  ))}
+                  {sending && (
+                    <div className="message assistant-message">
+                      <div className="message-avatar">AI</div>
+                      <div className="message-content">Thinking…</div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
+            </div>
+
+            <div className="input-area" style={{ display: activeView === "chat" ? "block" : "none" }}>
+              <div className="input-wrapper">
+                <div className="doc-chips" id="docChips">
+                  {uploadedDoc && (
+                    <div className="doc-chip">
+                      <IconFile />
+                      <span>{uploadedDoc}</span>
+                      <button className="doc-chip-close" onClick={removeDocument} title="Remove document">
+                        <IconClose />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="quick-actions" id="quickActions" style={{ display: uploadedDoc ? "flex" : "none" }}>
+                  {QUICK_ACTIONS.map((a) => (
+                    <button
+                      key={a.id}
+                      className="quick-pill"
+                      onClick={() => {
+                        setInput(a.prompt);
+                        requestAnimationFrame(() => {
+                          textareaRef.current?.focus();
+                          autoResize();
+                        });
+                      }}
+                    >
+                      {a.label}
                     </button>
                   ))}
                 </div>
-              )}
 
-              {mode === "document" && docLoaded && (
-                <div className="agent-hints">
-                  {["What is this document about?", "Summarize the key points", "Explain the main concepts"].map(
-                    (hint) => (
-                      <button
-                        key={hint}
-                        className="hint-chip"
-                        onClick={() => setInput(hint)}
-                      >
-                        {hint}
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
+                <div className="input-container">
+                  <div className="input-actions">
+                    <button
+                      className="icon-btn"
+                      title="Upload document"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={sending}
+                    >
+                      <IconUpload />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      title="Voice input"
+                      onClick={() => {
+                        window.alert("Voice input coming soon! This would use the Web Speech API.");
+                      }}
+                    >
+                      <IconMic />
+                    </button>
+                  </div>
 
-              {mode === "general" && (
-                <div className="agent-hints">
-                  {["Tell me about RAG systems", "Explain vector embeddings", "How does retrieval-augmented generation work?"].map(
-                    (hint) => (
-                      <button
-                        key={hint}
-                        className="hint-chip"
-                        onClick={() => setInput(hint)}
-                      >
-                        {hint}
-                      </button>
-                    )
-                  )}
+                  <textarea
+                    className="chat-input"
+                    id="chatInput"
+                    placeholder={inputPlaceholder}
+                    rows={1}
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                    }}
+                    onInput={autoResize}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                  />
+
+                  <button
+                    className="send-btn"
+                    id="sendBtn"
+                    disabled={!input.trim() || sending}
+                    onClick={sendMessage}
+                    title="Send"
+                  >
+                    <IconSend />
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
-          ) : (
-            <div className="messages">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`message message-${msg.role}`}>
-                  <div className="message-avatar">
-                    {msg.role === "user" ? (
-                      <div className="avatar user-avatar">U</div>
-                    ) : (
-                      <div className="avatar ai-avatar">
-                        <Bot size={16} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="message-body">
-                    <div className="message-role">{msg.role === "user" ? "You" : "AI Assistant"}</div>
-                    <div className="message-content">
-                      {msg.content.split("\n").map((line, i) => (
-                        <span key={i}>
-                          {line}
-                          {i < msg.content.split("\n").length - 1 && <br />}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="message message-assistant">
-                  <div className="message-avatar">
-                    <div className="avatar ai-avatar">
-                      <Bot size={16} />
-                    </div>
-                  </div>
-                  <div className="message-body">
-                    <div className="message-role">AI Assistant</div>
-                    <div className="message-content typing">
-                      <Loader2 size={16} className="spin" />
-                      <span>Thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
 
-        {/* Input Area */}
-        <div className="input-area">
-          <div className="input-container">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                mode === "document"
-                  ? "Ask a question about your document..."
-                  : mode === "general"
-                  ? "Ask me anything..."
-                  : "Try: summarize, notes, or explain..."
-              }
-              rows={1}
-              className="chat-input"
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden-input"
+              accept=".pdf"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                await uploadDocument(file);
+                e.target.value = "";
+              }}
             />
-            <button
-              className="send-btn"
-              onClick={sendMessage}
-              disabled={!input.trim() || isLoading}
-            >
-              {isLoading ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
-            </button>
-          </div>
-          <p className="input-hint">
-            {mode === "document" && !docLoaded && "Upload a PDF first to enable document Q&A"}
-            {mode === "document" && docLoaded && "Answers are based on your uploaded document context"}
-            {mode === "general" && "General chat mode — no document context needed"}
-            {mode === "agent" && "Use keywords: summarize, notes, or explain for smart actions"}
-          </p>
+          </main>
         </div>
-      </main>
-=======
-    <div className="container">
-      <h1>AI Knowledge Assistant</h1>
-
-      <div className="section">
-        <h3>Upload PDF</h3>
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <br />
-        <button onClick={uploadFile}>Upload</button>
-      </div>
-
-      <div className="section">
-        <h3>Ask Question</h3>
-        <input
-          type="text"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask something..."
-        />
-        <button onClick={askQuestion}>Ask</button>
-      </div>
-
-      <div className="section">
-        <h3>Answer:</h3>
-        <div className="answer-box">{answer}</div>
-      </div>
->>>>>>> 54d6e8e (css app  files)
-    </div>
+      )}
+    </>
   );
 }

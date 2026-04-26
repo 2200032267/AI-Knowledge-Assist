@@ -1,0 +1,14 @@
+{
+  "id": "chat_1777208631",
+  "title": "Document \"sample_ai_document.pdf\" upload",
+  "mode": "document",
+  "doc_id": null,
+  "doc_name": "sample_ai_document.pdf",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Document \"sample_ai_document.pdf\" uploaded successfully. You can now ask questions about it or use the quick actions above."
+    }
+  ],
+  "updated_at": "2026-04-26T18:33:51"
+}
