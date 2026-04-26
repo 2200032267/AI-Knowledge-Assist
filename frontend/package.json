@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "name": "ai-knowledge-assistant",
+=======
+  "name": "frontend",
+>>>>>>> 54d6e8e (css app  files)
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +14,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@supabase/supabase-js": "^2.104.1",
     "lucide-react": "^1.11.0",
+=======
+>>>>>>> 54d6e8e (css app  files)
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

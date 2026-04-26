@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 import { useState, useRef, useEffect } from "react";
 import { Upload, Send, FileText, MessageSquare, Bot, Sparkles, Loader as Loader2, X, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Trash2, Plus, BookOpen, Zap } from "lucide-react";
 import { supabase } from "./lib/supabase";
+=======
+import { useState } from "react";
+>>>>>>> 54d6e8e (css app  files)
 import "./App.css";
 
 const API = "http://127.0.0.1:8000";
@@ -14,6 +18,7 @@ const MODES = [
 const AGENT_HINTS = ["summarize", "notes", "explain"];
 
 export default function App() {
+<<<<<<< HEAD
   const [mode, setMode] = useState("document");
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
@@ -102,14 +107,45 @@ export default function App() {
       session_id: sessionId,
       role,
       content,
+=======
+  const [file, setFile] = useState(null);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+
+  const uploadFile = async () => {
+    if (!file) return alert("Select a file first");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    await fetch(`${API}/upload`, {
+      method: "POST",
+      body: formData,
+>>>>>>> 54d6e8e (css app  files)
     });
+
+    alert("File uploaded!");
   };
 
+<<<<<<< HEAD
   const updateSessionTitle = async (sessionId, title) => {
     await supabase
       .from("chat_sessions")
       .update({ title, updated_at: new Date().toISOString() })
       .eq("id", sessionId);
+=======
+  const askQuestion = async () => {
+    const res = await fetch(`${API}/ask`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ question }),
+    });
+
+    const data = await res.json();
+    setAnswer(data.answer);
+>>>>>>> 54d6e8e (css app  files)
   };
 
   const handleUpload = async (e) => {
@@ -231,6 +267,7 @@ export default function App() {
   const currentModeConfig = MODES.find((m) => m.id === mode);
 
   return (
+<<<<<<< HEAD
     <div className="app-layout">
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : "closed"}`}>
@@ -498,6 +535,33 @@ export default function App() {
           </p>
         </div>
       </main>
+=======
+    <div className="container">
+      <h1>AI Knowledge Assistant</h1>
+
+      <div className="section">
+        <h3>Upload PDF</h3>
+        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+        <br />
+        <button onClick={uploadFile}>Upload</button>
+      </div>
+
+      <div className="section">
+        <h3>Ask Question</h3>
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask something..."
+        />
+        <button onClick={askQuestion}>Ask</button>
+      </div>
+
+      <div className="section">
+        <h3>Answer:</h3>
+        <div className="answer-box">{answer}</div>
+      </div>
+>>>>>>> 54d6e8e (css app  files)
     </div>
   );
 }

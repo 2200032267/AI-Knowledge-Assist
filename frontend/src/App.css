@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* ===== Layout ===== */
 .app-layout {
   display: flex;
@@ -636,3 +637,61 @@
     gap: 8px;
   }
 }
+=======
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f7fa;
+}
+
+.container {
+  max-width: 700px;
+  margin: 40px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+h1 {
+  text-align: center;
+  color: #333;
+}
+
+.section {
+  margin-top: 20px;
+}
+
+input[type="file"] {
+  margin-top: 10px;
+}
+
+input[type="text"] {
+  width: 70%;
+  padding: 8px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+button {
+  padding: 8px 15px;
+  border: none;
+  background: #007bff;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+.answer-box {
+  margin-top: 15px;
+  padding: 10px;
+  background: #f0f4f8;
+  border-radius: 5px;
+  min-height: 40px;
+}
+>>>>>>> 54d6e8e (css app  files)
