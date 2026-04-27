@@ -3,7 +3,6 @@ import { X, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import {
   login,
   loginUserSession,
-  oauthLogin,
   signup,
 } from "../auth";
 
@@ -46,7 +45,7 @@ export default function LoginModal({
 
   const doLogin = (user, successMessage) => {
     console.debug("[auth] finalize login", { email: user.email, name: user.name });
-    loginUserSession(user, defaultSettings);
+    loginUserSession(user, defaultSettings, rememberMe);
 
     if (rememberMe) {
       // We still keep session in sessionStorage, but rememberMe can prefill email.
@@ -161,18 +160,6 @@ export default function LoginModal({
       doLogin(res.user, `Welcome back, ${res.user.name}`);
     } catch (err) {
       onToast?.("error", "Login failed: " + (err?.message || "Unknown error"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOAuth = async (provider) => {
-    setIsLoading(true);
-    try {
-      const user = oauthLogin(provider);
-      doLogin(user, `Signed in with ${provider === "google" ? "Google" : "GitHub"}!`);
-    } catch {
-      onToast?.("error", "Sign-in failed");
     } finally {
       setIsLoading(false);
     }
@@ -294,13 +281,6 @@ export default function LoginModal({
                   />
                   <span className="checkbox-label">Remember me</span>
                 </label>
-                <button
-                  className="link link-btn"
-                  onClick={() => onToast?.("error", "Password reset is a demo-only UI")}
-                  type="button"
-                >
-                  Forgot password?
-                </button>
               </div>
             )}
 
@@ -313,29 +293,6 @@ export default function LoginModal({
               {isLoading ? "Loading..." : isSignup ? "Create Account" : "Sign In"}
             </button>
           </form>
-
-          <div className="divider">or continue with</div>
-
-          <div className="social-btns">
-            <button className="social-btn" onClick={() => handleOAuth("google")} disabled={isLoading}>
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M21.35 11.1H12v2.98h5.35c-.47 2.71-2.76 3.95-5.35 3.95-3.23 0-5.86-2.66-5.86-5.93S8.77 6.17 12 6.17c1.74 0 2.93.76 3.6 1.41l2.45-2.39C16.55 3.77 14.48 2.7 12 2.7 6.95 2.7 2.83 6.86 2.83 12.1S6.95 21.5 12 21.5c5.2 0 8.62-3.67 8.62-8.83 0-.6-.07-1.06-.17-1.57Z"
-                />
-              </svg>
-              Continue with Google
-            </button>
-            <button className="social-btn" onClick={() => handleOAuth("github")} disabled={isLoading}>
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M12 .5a11.5 11.5 0 0 0-3.64 22.4c.58.11.8-.25.8-.56v-2.02c-3.25.71-3.94-1.38-3.94-1.38-.53-1.36-1.3-1.72-1.3-1.72-1.06-.73.08-.72.08-.72 1.17.08 1.78 1.22 1.78 1.22 1.04 1.8 2.73 1.28 3.4.98.1-.77.4-1.28.72-1.57-2.59-.3-5.31-1.32-5.31-5.86 0-1.3.45-2.36 1.2-3.19-.12-.3-.52-1.5.11-3.12 0 0 .98-.32 3.2 1.22a10.9 10.9 0 0 1 5.82 0c2.2-1.54 3.18-1.22 3.18-1.22.64 1.62.24 2.82.12 3.12.75.83 1.2 1.89 1.2 3.19 0 4.55-2.73 5.56-5.33 5.86.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z"
-                />
-              </svg>
-              Continue with GitHub
-            </button>
-          </div>
 
           <div className="terms">
             By continuing you agree to <span className="link">Terms</span> and <span className="link">Privacy Policy</span>

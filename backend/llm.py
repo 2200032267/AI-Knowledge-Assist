@@ -16,6 +16,13 @@ def _load_env() -> None:
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+WORKING_OPENROUTER_MODELS = [
+    "meta-llama/llama-3.2-3b-instruct:free",
+    "google/gemma-3-27b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "openai/gpt-oss-20b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+]
 
 # Runtime overrides set via the Settings API.
 _RUNTIME_OPENROUTER_API_KEY: str | None = None
@@ -77,53 +84,72 @@ def _try_openrouter(prompt: str, system_message: Optional[str]) -> Optional[str]
     if not api_key:
         return None
 
-    model = _RUNTIME_OPENROUTER_MODEL or os.getenv("OPENROUTER_MODEL") or "openrouter/free"
+    selected_model = _RUNTIME_OPENROUTER_MODEL or os.getenv("OPENROUTER_MODEL") or WORKING_OPENROUTER_MODELS[0]
+
+    model_candidates = [selected_model]
+    for fallback_model in WORKING_OPENROUTER_MODELS:
+        if fallback_model not in model_candidates:
+            model_candidates.append(fallback_model)
 
     messages = []
     if system_message:
         messages.append({"role": "system", "content": system_message})
     messages.append({"role": "user", "content": prompt})
 
-    try:
-        body = {
-            "model": model,
-            "messages": messages,
-        }
+    last_error: str | None = None
 
-        if _RUNTIME_TEMPERATURE is not None:
-            body["temperature"] = max(0.0, min(2.0, float(_RUNTIME_TEMPERATURE)))
-        if _RUNTIME_MAX_TOKENS is not None:
-            body["max_tokens"] = max(1, int(_RUNTIME_MAX_TOKENS))
-
-        response = requests.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-            timeout=60,
-        )
-
+    for model in model_candidates:
         try:
-            result = response.json()
-        except Exception:
-            return f"OpenRouter error (HTTP {response.status_code}): {response.text[:500]}"
+            body = {
+                "model": model,
+                "messages": messages,
+            }
 
-        if isinstance(result, dict) and "choices" in result and result["choices"]:
-            return result["choices"][0]["message"]["content"]
+            if _RUNTIME_TEMPERATURE is not None:
+                body["temperature"] = max(0.0, min(2.0, float(_RUNTIME_TEMPERATURE)))
+            if _RUNTIME_MAX_TOKENS is not None:
+                body["max_tokens"] = max(1, int(_RUNTIME_MAX_TOKENS))
 
-        if isinstance(result, dict) and "error" in result:
-            msg = result["error"].get("message") if isinstance(result["error"], dict) else str(result["error"])
-            return f"OpenRouter API error: {msg or 'Unknown error'}"
+            response = requests.post(
+                OPENROUTER_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": os.getenv("OPENROUTER_REFERER", "http://localhost:5173"),
+                    "X-Title": os.getenv("OPENROUTER_TITLE", "AI Knowledge Assistant"),
+                },
+                json=body,
+                timeout=60,
+            )
 
-        return "Unexpected response format from OpenRouter."
-    except requests.exceptions.Timeout:
-        return "OpenRouter request timed out. Please try again."
-    except requests.exceptions.ConnectionError:
-        return "Could not connect to OpenRouter. Check your internet connection."
-    except Exception as e:
-        return f"Error calling OpenRouter: {str(e)}"
+            try:
+                result = response.json()
+            except Exception:
+                last_error = f"OpenRouter error (HTTP {response.status_code}): {response.text[:500]}"
+                continue
+
+            if isinstance(result, dict) and "choices" in result and result["choices"]:
+                return result["choices"][0]["message"]["content"]
+
+            if isinstance(result, dict) and "error" in result:
+                msg = result["error"].get("message") if isinstance(result["error"], dict) else str(result["error"])
+                error_text = msg or "Unknown error"
+                last_error = f"OpenRouter API error: {error_text}"
+
+                # Common free-tier failure: try the next model.
+                if "No endpoints found" in error_text or "model" in error_text.lower() or response.status_code in {400, 404, 422, 429}:
+                    continue
+                return last_error
+
+            last_error = "Unexpected response format from OpenRouter."
+        except requests.exceptions.Timeout:
+            last_error = "OpenRouter request timed out."
+        except requests.exceptions.ConnectionError:
+            last_error = "Could not connect to OpenRouter. Check your internet connection."
+        except Exception as e:
+            last_error = f"Error calling OpenRouter: {str(e)}"
+
+    return last_error or "OpenRouter request failed."
 
 
 def _extract_hf_generated_text(payload) -> Optional[str]:

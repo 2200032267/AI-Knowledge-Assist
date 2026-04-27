@@ -1,4 +1,10 @@
 .settings-page{
+  --panel: var(--bg-secondary);
+  --border: var(--border-color);
+  --border-strong: #4a4a4a;
+  --bg: var(--bg-primary);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
   height:100%;
   display:flex;
   flex-direction:column;
@@ -71,6 +77,13 @@
 .field.row{flex-direction:row;align-items:center;justify-content:space-between;gap:12px;}
 .field label{font-size:12px;color:var(--muted);}
 
+.settings-select-label,
+.settings-control-title,
+.settings-toggle-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
 .field input[type="text"],
 .field input[type="email"],
 .field input[type="password"],
@@ -85,7 +98,318 @@
   outline:none;
 }
 
+.settings-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #b0b0b0 50%),
+    linear-gradient(135deg, #b0b0b0 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.settings-select option {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.settings-select option:checked {
+  background: #1abc9c;
+  color: #0d0d0d;
+}
+
 .field textarea{resize:vertical;min-height:110px;}
+
+.settings-control-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.settings-control-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-control-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-control-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #1a1a1a;
+  transition: border-color .2s ease;
+}
+
+.settings-toggle-card:hover {
+  border-color: var(--border-strong);
+}
+
+.settings-toggle-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-toggle-label {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-toggle-description {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-switch {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  position: relative;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.settings-switch.off {
+  background: #2a2a2a;
+}
+
+.settings-switch.on {
+  background: #1abc9c;
+}
+
+.settings-switch:focus-visible {
+  outline: 2px solid #1abc9c;
+  outline-offset: 2px;
+}
+
+.settings-switch-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  transition: transform .2s ease;
+}
+
+.settings-switch.on .settings-switch-knob {
+  transform: translateX(20px);
+}
+
+.settings-select-card {
+  position: relative;
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.settings-select-anchor {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  margin-top: 8px;
+}
+
+.settings-select-label {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-select-description {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.settings-select-trigger {
+  width: fit-content;
+  min-width: 180px;
+  max-width: 280px;
+  border: 1px solid #7a7a7a;
+  background: #0d0d0d;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.settings-select-trigger:hover,
+.settings-select-trigger.open {
+  border-color: #1abc9c;
+}
+
+:root[data-theme="light"] .settings-section,
+:root[data-theme="light"] .settings-control-card,
+:root[data-theme="light"] .settings-toggle-card,
+:root[data-theme="light"] .readonly-card,
+:root[data-theme="light"] .usage-block,
+:root[data-theme="light"] .storage-card {
+  background: #ffffff !important;
+  border-color: #d8dee8 !important;
+}
+
+:root[data-theme="light"] .settings-toggle-card,
+:root[data-theme="light"] .settings-control-card {
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.03);
+}
+
+:root[data-theme="light"] .settings-select-trigger {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #9aa6b2 !important;
+}
+
+:root[data-theme="light"] .settings-select-trigger:hover,
+:root[data-theme="light"] .settings-select-trigger.open {
+  border-color: #1abc9c;
+}
+
+:root[data-theme="light"] .settings-select-menu {
+  background: #ffffff !important;
+  border-color: #d8dee8 !important;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme="light"] .settings-select-option {
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .settings-select-option:hover {
+  background: #eef2f7;
+}
+
+:root[data-theme="light"] .settings-select-option.active {
+  background: rgba(26,188,156,.12);
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .settings-switch.off {
+  background: #d1d5db;
+}
+
+:root[data-theme="light"] .settings-toggle-card:hover {
+  border-color: #bfc9d4;
+}
+
+:root[data-theme="light"] .settings-select-label,
+:root[data-theme="light"] .settings-control-title,
+:root[data-theme="light"] .settings-toggle-label,
+:root[data-theme="light"] .settings-section label,
+:root[data-theme="light"] .field label,
+:root[data-theme="light"] .settings-title,
+:root[data-theme="light"] .settings-tab,
+:root[data-theme="light"] .settings-control-desc,
+:root[data-theme="light"] .settings-toggle-description,
+:root[data-theme="light"] .settings-select-description,
+:root[data-theme="light"] .helper,
+:root[data-theme="light"] .usage-metric,
+:root[data-theme="light"] .usage-sub,
+:root[data-theme="light"] .storage-row,
+:root[data-theme="light"] .readonly-card.muted,
+:root[data-theme="light"] .warning-sub {
+  color: #111827;
+}
+
+:root[data-theme="light"] .settings-control-desc,
+:root[data-theme="light"] .settings-toggle-description,
+:root[data-theme="light"] .settings-select-description,
+:root[data-theme="light"] .helper,
+:root[data-theme="light"] .usage-metric,
+:root[data-theme="light"] .usage-sub,
+:root[data-theme="light"] .storage-row,
+:root[data-theme="light"] .readonly-card.muted,
+:root[data-theme="light"] .warning-sub {
+  color: #374151;
+}
+
+:root[data-theme="light"] .settings-select-trigger svg,
+:root[data-theme="light"] .settings-toggle-card svg,
+:root[data-theme="light"] .settings-tab svg {
+  color: #374151;
+}
+
+:root[data-theme="light"] .settings-select-trigger:hover,
+:root[data-theme="light"] .settings-select-trigger.open,
+:root[data-theme="light"] .settings-switch.on {
+  box-shadow: 0 0 0 2px rgba(26,188,156,.12);
+}
+
+.settings-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 100%;
+  max-width: 300px;
+  border: 1px solid #666;
+  border-radius: 12px;
+  background: #121212;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-select-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-select-option:hover {
+  background: #1f1f1f;
+}
+
+.settings-select-option.active {
+  background: rgba(26,188,156,.15);
+  color: #d9fffa;
+}
 
 .field input:focus,
 .field select:focus,
@@ -169,6 +493,12 @@
 }
 
 .toggle.on{background:rgba(45,212,191,.18);border-color:rgba(45,212,191,.6);}
+.toggle.off{background:#2a2a2a;border-color:#2f2f2f;}
+
+.toggle.on{
+  background:#1abc9c;
+  border-color:#1abc9c;
+}
 
 .toggle-knob{
   width:18px;
@@ -183,6 +513,25 @@
 }
 
 .toggle.on .toggle-knob{left:22px;}
+
+.settings-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #1abc9c;
+}
+
+.field input[type="range"] {
+  accent-color: #1abc9c;
+}
+
+.field input[type="range"]::-webkit-slider-thumb {
+  background: #1abc9c;
+}
+
+.field input[type="range"]::-moz-range-thumb {
+  background: #1abc9c;
+  border: 0;
+}
 
 .warning-banner{
   display:flex;

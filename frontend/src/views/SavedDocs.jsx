@@ -79,9 +79,9 @@ export default function SavedDocs({ onOpenDoc, onUploadClick, onToast, onDocumen
     return docs.filter((doc) => doc.name.toLowerCase().includes(q));
   }, [docs, searchQuery]);
 
-  const totalMbUsed = useMemo(() => {
+  const totalSizeUsed = useMemo(() => {
     const bytes = docs.reduce((sum, d) => sum + Number(d.size || 0), 0);
-    return (bytes / (1024 * 1024)).toFixed(1);
+    return formatSize(bytes);
   }, [docs]);
 
   const handleDelete = (docId) => {
@@ -197,7 +197,7 @@ export default function SavedDocs({ onOpenDoc, onUploadClick, onToast, onDocumen
 
       {docs.length > 0 ? (
         <div className="saved-docs-footer">
-          Total: {docs.length} document{docs.length !== 1 ? "s" : ""} • {totalMbUsed} MB used
+          Total: {docs.length} document{docs.length !== 1 ? "s" : ""} • {totalSizeUsed} used
         </div>
       ) : null}
     </div>

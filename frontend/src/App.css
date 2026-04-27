@@ -180,26 +180,32 @@
 
 /* Toast */
 .toast {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1000;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow);
-  font-size: 13px;
-  color: var(--text-primary);
-  max-width: 360px;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  min-width: 280px;
+  max-width: min(90vw, 420px);
+  padding: 14px 16px;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
 }
 
 .toast-success {
-  border-color: rgba(26, 188, 156, 0.6);
+  background: linear-gradient(135deg, rgba(26, 188, 156, 0.98), rgba(22, 160, 133, 0.98));
+  border: 1px solid rgba(171, 255, 236, 0.45);
 }
 
 .toast-error {
-  border-color: rgba(239, 68, 68, 0.6);
+  background: linear-gradient(135deg, rgba(26, 188, 156, 0.98), rgba(26, 188, 156, 0.98));
+  border: 1px solid rgba(255, 186, 186, 0.45);
 }
 
 .nav-item svg {

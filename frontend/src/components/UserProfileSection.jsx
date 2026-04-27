@@ -17,7 +17,7 @@ export default function UserProfileSection({
   useEffect(() => {
     const loadUserData = () => {
       try {
-        const cached = window.sessionStorage.getItem("user_cache");
+        const cached = window.sessionStorage.getItem("user_cache") || window.localStorage.getItem("user_cache");
         if (cached) {
           setUserCache(JSON.parse(cached));
           return;
@@ -78,10 +78,8 @@ export default function UserProfileSection({
   }, [resolvedName, userInitials]);
 
   const handleLogout = () => {
-    if (!window.confirm("Are you sure you want to log out?")) return;
-
+    onToast?.("success", `${resolvedName} logged out successfully`);
     window.sessionStorage.clear();
-    onToast?.("success", "Logged out successfully");
     setShowDropdown(false);
     onLogout?.();
   };

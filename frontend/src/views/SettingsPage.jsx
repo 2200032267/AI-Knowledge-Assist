@@ -1,16 +1,138 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./SettingsPage.css";
 import { DEFAULT_SETTINGS } from "../defaultSettings";
 import {
   AlertTriangle,
   Brain,
   Bot,
+  Check,
+  ChevronDown,
   Database,
   HardDrive,
   Palette,
   Save,
   User,
 } from "lucide-react";
+
+const AGENT_ACTION_OPTIONS = [
+  { id: "summarize", label: "Summarize" },
+  { id: "study_notes", label: "Study Notes" },
+  { id: "key_points", label: "Key Points" },
+  { id: "faq", label: "FAQ" },
+  { id: "action_items", label: "Action Items" },
+];
+
+const MODEL_OPTIONS = [
+  { value: "meta-llama/llama-3.2-3b-instruct:free", label: "Llama 3.2 3B - Free (Fastest)" },
+  { value: "google/gemma-3-27b-it:free", label: "Gemma 3 27B - Free (Best Quality)" },
+  { value: "qwen/qwen3-next-80b-a3b-instruct:free", label: "Qwen3 Next 80B - Free (Strong Reasoning)" },
+  { value: "openai/gpt-oss-20b:free", label: "GPT-OSS 20B - Free (Balanced)" },
+  { value: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B - Free (Largest)" },
+  { value: "mistralai/mistral-7b-instruct-v0.2", label: "Mistral 7B v0.2 - Paid" },
+];
+
+const DEFAULT_ENABLED_ACTION_IDS = AGENT_ACTION_OPTIONS.map((opt) => opt.id);
+const TOKENS_PER_MB = 250000;
+
+function applyInterfacePreferences(theme, fontSize) {
+  const selectedTheme = theme === "light" ? "light" : "dark";
+  const selectedFontSize = fontSize || "medium";
+
+  document.documentElement.setAttribute("data-theme", selectedTheme);
+  document.documentElement.style.fontSize =
+    selectedFontSize === "small" ? "14px" : selectedFontSize === "large" ? "18px" : "16px";
+}
+
+function ToggleCard({ checked, onChange, label, description = null }) {
+  return (
+    <div className="settings-toggle-card">
+      <div className="settings-toggle-copy">
+        <p className="settings-toggle-label">{label}</p>
+        {description ? <p className="settings-toggle-description">{description}</p> : null}
+      </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`settings-switch ${checked ? "on" : "off"}`}
+      >
+        <span className="settings-switch-knob" />
+      </button>
+    </div>
+  );
+}
+
+function SelectCard({ label, description, value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  const selectedOption =
+    options.find((opt) => String(opt.value) === String(value)) || options[0] || { label: "Select", value: "" };
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    window.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  return (
+    <div className="settings-select-card" ref={rootRef}>
+      <label className="settings-select-label">{label}</label>
+      {description ? <p className="settings-select-description">{description}</p> : null}
+
+      <div className="settings-select-anchor">
+        <button
+          type="button"
+          className={`settings-select-trigger ${open ? "open" : ""}`}
+          onClick={() => setOpen((prev) => !prev)}
+          aria-expanded={open}
+        >
+          <span>{selectedOption.label}</span>
+          <ChevronDown size={16} />
+        </button>
+
+        {open ? (
+          <div className="settings-select-menu" role="listbox">
+            {options.map((opt) => {
+              const active = String(opt.value) === String(value);
+              return (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  className={`settings-select-option ${active ? "active" : ""}`}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                >
+                  <span>{opt.label}</span>
+                  {active ? <Check size={14} /> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -40,6 +162,14 @@ function setPathValue(obj, path, value) {
     cur = cur[keys[i]];
   }
   cur[keys[keys.length - 1]] = value;
+}
+
+function formatSize(bytes) {
+  const safe = Number(bytes || 0);
+  if (safe === 0) return "0 KB";
+  if (safe < 1024) return `${safe} B`;
+  if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
+  return `${(safe / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 async function safeJson(res) {
@@ -106,6 +236,37 @@ export default function SettingsPage({
       if (parsedLocal) deepMerge(merged, parsedLocal);
       merged.user_id = userId;
 
+      const users = JSON.parse(window.localStorage.getItem("users") || "[]");
+      const account = users.find((u) => u.id === userId);
+      let cacheProfile = {};
+      try {
+        cacheProfile = JSON.parse(
+          window.sessionStorage.getItem("user_cache") || window.localStorage.getItem("user_cache") || "{}"
+        );
+      } catch {
+        cacheProfile = {};
+      }
+
+      merged.profile = {
+        ...(merged.profile || {}),
+        name: account?.name || cacheProfile?.name || merged.profile?.name || "",
+        email: account?.email || cacheProfile?.email || merged.profile?.email || "",
+      };
+
+      const validActionIds = new Set(AGENT_ACTION_OPTIONS.map((action) => action.id));
+      const savedEnabledActions = Array.isArray(merged?.agent?.enabled_actions)
+        ? merged.agent.enabled_actions.filter((id) => validActionIds.has(id))
+        : [];
+
+      merged.agent.enabled_actions =
+        savedEnabledActions.length > 0 ? savedEnabledActions : [...DEFAULT_ENABLED_ACTION_IDS];
+
+      if (![3, 5, 8].includes(Number(merged.agent.summary_length))) {
+        merged.agent.summary_length = 5;
+      }
+
+      applyInterfacePreferences(merged?.interface?.theme, merged?.interface?.font_size);
+
       setSettings(merged);
     };
 
@@ -114,6 +275,10 @@ export default function SettingsPage({
       cancelled = true;
     };
   }, [apiBase, userId]);
+
+  useEffect(() => {
+    applyInterfacePreferences(settings?.interface?.theme, settings?.interface?.font_size);
+  }, [settings?.interface?.theme, settings?.interface?.font_size]);
 
   const updateSetting = (path, value) => {
     setSettings((prev) => {
@@ -149,9 +314,6 @@ export default function SettingsPage({
         onProfileChanged?.(settings.profile);
       }
 
-      // Apply theme immediately (MVP: dark/light)
-      document.documentElement.setAttribute("data-theme", settings.interface.theme);
-
       if (settings.rag.needs_reprocess) {
         onToast?.("error", "Re-process documents to apply RAG changes");
       }
@@ -163,7 +325,20 @@ export default function SettingsPage({
 
   const handleReset = () => {
     if (!window.confirm("Reset all settings to defaults? This cannot be undone.")) return;
-    setSettings({ ...deepClone(DEFAULT_SETTINGS), user_id: userId });
+    const resetSettings = {
+      ...deepClone(DEFAULT_SETTINGS),
+      user_id: userId,
+      profile: {
+        name: settings?.profile?.name || "",
+        email: settings?.profile?.email || "",
+      },
+      agent: {
+        ...deepClone(DEFAULT_SETTINGS.agent),
+        enabled_actions: [...DEFAULT_ENABLED_ACTION_IDS],
+      },
+    };
+    setSettings(resetSettings);
+    applyInterfacePreferences(resetSettings.interface.theme, resetSettings.interface.font_size);
     setUnsavedChanges(true);
     onToast?.("success", "Settings reset to defaults");
   };
@@ -222,9 +397,31 @@ export default function SettingsPage({
     }
   }, [userId]);
 
+  const history = useMemo(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(`history_${userId}`) || "[]");
+    } catch {
+      return [];
+    }
+  }, [userId]);
+
   const docsCount = docs.length;
-  const docsBytes = docs.reduce((sum, d) => sum + (Number(d.size_bytes) || 0), 0);
-  const docsMb = (docsBytes / (1024 * 1024)).toFixed(1);
+  const docsBytes = docs.reduce((sum, d) => sum + (Number(d.size_bytes) || Number(d.size) || 0), 0);
+  const docsSizeDisplay = formatSize(docsBytes);
+  const tokenLimit = 50000;
+  const usedTokens = Math.round(
+    history.reduce((chatTotal, chat) => {
+      const chatMessages = Array.isArray(chat?.messages) ? chat.messages : [];
+      const chatTokens = chatMessages.reduce((msgTotal, msg) => {
+        const text = String(msg?.content || msg?.text || "");
+        return msgTotal + Math.ceil(text.length / 4);
+      }, 0);
+      return chatTotal + chatTokens;
+    }, 0)
+  );
+  const usagePct = Math.min(100, (usedTokens / tokenLimit) * 100);
+  const tokenMb = (usedTokens / TOKENS_PER_MB).toFixed(4);
+  const storagePct = (docsBytes / (1024 * 1024 * 1024)) * 100;
 
   return (
     <div className="settings-page">
@@ -260,7 +457,7 @@ export default function SettingsPage({
               <input
                 type="text"
                 value={settings.profile.name}
-                onChange={(e) => updateSetting("profile.name", e.target.value)}
+                readOnly
                 placeholder="Your name"
               />
             </div>
@@ -275,42 +472,28 @@ export default function SettingsPage({
             <div className="usage-block">
               <div className="usage-header">
                 <div className="usage-title">API Usage This Month</div>
-                <div className="usage-pct">24.7%</div>
+                <div className="usage-pct">{usagePct.toFixed(1)}%</div>
               </div>
-              <div className="usage-metric">12,340 / 50,000 tokens</div>
+              <div className="usage-metric">{usedTokens.toLocaleString()} / {tokenLimit.toLocaleString()} tokens</div>
               <div className="usage-bar">
-                <div className="usage-bar-fill" style={{ width: "24.7%" }} />
+                <div className="usage-bar-fill" style={{ width: `${usagePct.toFixed(1)}%` }} />
               </div>
-              <div className="usage-sub">Documents Uploaded: {docsCount} PDFs • {docsMb} MB</div>
+              <div className="usage-sub">{usedTokens.toLocaleString()} tokens = {tokenMb} MB</div>
+              
+              <div className="usage-sub">Documents Uploaded: {docsCount} PDFs • {docsSizeDisplay}</div>
             </div>
           </div>
         )}
 
         {activeTab === "llm" && (
           <div className="settings-section">
-            <div className="field">
-              <label>Model</label>
-              <div className="readonly-card">
-                {settings.llm.model}
-                <span className="readonly-badge">via OpenRouter</span>
-              </div>
-            </div>
-
-            <div className="field">
-              <label>API Endpoint</label>
-              <div className="readonly-card">https://openrouter.ai/api/v1</div>
-            </div>
-
-            <div className="field">
-              <label>OpenRouter API Key</label>
-              <input
-                type="password"
-                value={settings.llm.api_key}
-                onChange={(e) => updateSetting("llm.api_key", e.target.value)}
-                placeholder="sk-or-v1-..."
-              />
-              <div className="helper">Get a key at openrouter.ai</div>
-            </div>
+            <SelectCard
+              label="Model"
+              description="Uses a currently available OpenRouter model. If one disappears, the backend falls back automatically."
+              value={settings.llm.model}
+              onChange={(v) => updateSetting("llm.model", v)}
+              options={MODEL_OPTIONS}
+            />
 
             <div className="field">
               <label>Temperature: {settings.llm.temperature.toFixed(1)}</label>
@@ -325,38 +508,24 @@ export default function SettingsPage({
               <div className="helper">0.0 = factual, 1.0 = creative. Use 0.1 for RAG.</div>
             </div>
 
-            <div className="field">
-              <label>Max Tokens</label>
-              <select
-                value={settings.llm.max_tokens}
-                onChange={(e) => updateSetting("llm.max_tokens", Number(e.target.value))}
-              >
-                <option value={256}>256</option>
-                <option value={512}>512</option>
-                <option value={1024}>1024</option>
-              </select>
-            </div>
+            <SelectCard
+              label="Max Tokens"
+              value={settings.llm.max_tokens}
+              onChange={(v) => updateSetting("llm.max_tokens", Number(v))}
+              options={[
+                { value: 256, label: "256" },
+                { value: 512, label: "512" },
+                { value: 1024, label: "1024" },
+                { value: 2048, label: "2048" },
+              ]}
+            />
 
-            <div className="field">
-              <label>System Prompt - Guardrail</label>
-              <textarea
-                rows={6}
-                value={settings.llm.system_prompt}
-                onChange={(e) => updateSetting("llm.system_prompt", e.target.value)}
-              />
-              <div className="helper">Use {"{context}"} and {"{question}"} placeholders.</div>
-            </div>
-
-            <div className="field row">
-              <label>Streaming</label>
-              <button
-                className={`toggle ${settings.llm.streaming ? "on" : "off"}`}
-                onClick={() => updateSetting("llm.streaming", !settings.llm.streaming)}
-                type="button"
-              >
-                <span className="toggle-knob" />
-              </button>
-            </div>
+            <ToggleCard
+              label="Streaming"
+              description="Stream responses word-by-word for faster perceived speed"
+              checked={settings.llm.streaming}
+              onChange={(checked) => updateSetting("llm.streaming", checked)}
+            />
           </div>
         )}
 
@@ -375,38 +544,38 @@ export default function SettingsPage({
               </div>
             )}
 
-            <div className="field">
-              <label>Chunk Size</label>
-              <select
-                value={settings.rag.chunk_size}
-                onChange={(e) => updateSetting("rag.chunk_size", Number(e.target.value))}
-              >
-                <option value={256}>256 tokens - High precision</option>
-                <option value={500}>500 tokens - Balanced</option>
-                <option value={1000}>1000 tokens - More context</option>
-              </select>
-            </div>
+            <SelectCard
+              label="Chunk Size"
+              value={settings.rag.chunk_size}
+              onChange={(v) => updateSetting("rag.chunk_size", Number(v))}
+              options={[
+                { value: 256, label: "256 tokens - High precision" },
+                { value: 500, label: "500 tokens - Balanced" },
+                { value: 1000, label: "1000 tokens - More context" },
+              ]}
+            />
 
-            <div className="field">
-              <label>Chunk Overlap</label>
-              <select
-                value={settings.rag.chunk_overlap}
-                onChange={(e) => updateSetting("rag.chunk_overlap", Number(e.target.value))}
-              >
-                <option value={0}>0</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
+            <SelectCard
+              label="Chunk Overlap"
+              value={settings.rag.chunk_overlap}
+              onChange={(v) => updateSetting("rag.chunk_overlap", Number(v))}
+              options={[
+                { value: 0, label: "0" },
+                { value: 50, label: "50" },
+                { value: 100, label: "100" },
+              ]}
+            />
 
-            <div className="field">
-              <label>Top-K Retrieval</label>
-              <select value={settings.rag.top_k} onChange={(e) => updateSetting("rag.top_k", Number(e.target.value))}>
-                <option value={1}>1 chunk - Fast</option>
-                <option value={3}>3 chunks - Balanced</option>
-                <option value={5}>5 chunks - More context</option>
-              </select>
-            </div>
+            <SelectCard
+              label="Top-K Retrieval"
+              value={settings.rag.top_k}
+              onChange={(v) => updateSetting("rag.top_k", Number(v))}
+              options={[
+                { value: 1, label: "1 chunk - Fast" },
+                { value: 3, label: "3 chunks - Balanced" },
+                { value: 5, label: "5 chunks - More context" },
+              ]}
+            />
 
             <div className="field">
               <label>Embedding Model</label>
@@ -433,11 +602,11 @@ export default function SettingsPage({
               <label>Enabled Actions</label>
               <div className="helper">Controls which quick agent skills are allowed.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
-                {["summarize", "notes", "faq"].map((action) => {
-                  const enabled = settings.agent.enabled_actions.includes(action);
+                {AGENT_ACTION_OPTIONS.map((action) => {
+                  const enabled = settings.agent.enabled_actions.includes(action.id);
                   return (
                     <label
-                      key={action}
+                      key={action.id}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -446,35 +615,35 @@ export default function SettingsPage({
                       }}
                     >
                       <input
+                        className="settings-checkbox"
                         type="checkbox"
                         checked={enabled}
                         onChange={(e) => {
                           const checked = e.target.checked;
                           const next = checked
-                            ? [...settings.agent.enabled_actions, action]
-                            : settings.agent.enabled_actions.filter((a) => a !== action);
+                            ? Array.from(new Set([...settings.agent.enabled_actions, action.id]))
+                            : settings.agent.enabled_actions.filter((a) => a !== action.id);
                           updateSetting("agent.enabled_actions", next);
                         }}
                       />
-                      {action}
+                      {action.label}
                     </label>
                   );
                 })}
               </div>
             </div>
 
-            <div className="field">
-              <label>Summary Length</label>
-              <select
-                value={settings.agent.summary_length}
-                onChange={(e) => updateSetting("agent.summary_length", Number(e.target.value))}
-              >
-                <option value={3}>3 bullets</option>
-                <option value={5}>5 bullets</option>
-                <option value={8}>8 bullets</option>
-              </select>
-              <div className="helper">Used by summarize-style actions.</div>
-            </div>
+            <SelectCard
+              label="Summary Length"
+              description="Used by summarize-style actions."
+              value={settings.agent.summary_length}
+              onChange={(v) => updateSetting("agent.summary_length", Number(v))}
+              options={[
+                { value: 3, label: "3 bullets" },
+                { value: 5, label: "5 bullets" },
+                { value: 8, label: "8 bullets" },
+              ]}
+            />
           </div>
         )}
 
@@ -500,28 +669,23 @@ export default function SettingsPage({
               </div>
             </div>
 
-            <div className="field row">
-              <label>Show Sources</label>
-              <button
-                className={`toggle ${settings.interface.show_sources ? "on" : "off"}`}
-                onClick={() => updateSetting("interface.show_sources", !settings.interface.show_sources)}
-                type="button"
-              >
-                <span className="toggle-knob" />
-              </button>
-            </div>
+            <ToggleCard
+              label="Show Sources"
+              description="Display page numbers and relevance scores with document answers"
+              checked={settings.interface.show_sources}
+              onChange={(checked) => updateSetting("interface.show_sources", checked)}
+            />
 
-            <div className="field">
-              <label>Font Size</label>
-              <select
-                value={settings.interface.font_size}
-                onChange={(e) => updateSetting("interface.font_size", e.target.value)}
-              >
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
-            </div>
+            <SelectCard
+              label="Font Size"
+              value={settings.interface.font_size}
+              onChange={(v) => updateSetting("interface.font_size", v)}
+              options={[
+                { value: "small", label: "Small" },
+                { value: "medium", label: "Medium" },
+                { value: "large", label: "Large" },
+              ]}
+            />
           </div>
         )}
 
@@ -531,13 +695,13 @@ export default function SettingsPage({
               <label>Storage Used</label>
               <div className="storage-card">
                 <div className="storage-row">
-                  <span>{docsMb} MB / 1024 MB</span>
-                  <span className="storage-pct">{Math.min(100, (docsBytes / (1024 * 1024 * 1024)) * 100).toFixed(1)}%</span>
+                  <span>{docsSizeDisplay} / 1024 MB</span>
+                  <span className="storage-pct">{Math.min(100, storagePct).toFixed(storagePct < 0.01 ? 4 : 1)}%</span>
                 </div>
                 <div className="usage-bar">
                   <div
                     className="usage-bar-fill"
-                    style={{ width: `${Math.min(100, (docsBytes / (1024 * 1024 * 1024)) * 100).toFixed(1)}%` }}
+                    style={{ width: `${Math.min(100, storagePct).toFixed(4)}%` }}
                   />
                 </div>
               </div>

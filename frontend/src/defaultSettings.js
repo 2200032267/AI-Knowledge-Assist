@@ -3,7 +3,7 @@ export const DEFAULT_SETTINGS = {
   profile: { name: "", email: "" },
   llm: {
     provider: "openrouter",
-    model: "mistralai/mistral-7b-instruct:free",
+    model: "meta-llama/llama-3.2-3b-instruct:free",
     api_key: "",
     temperature: 0.1,
     max_tokens: 512,
@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS = {
     needs_reprocess: false,
   },
   agent: {
-    enabled_actions: ["summarize", "notes", "faq"],
+    enabled_actions: ["summarize", "study_notes", "key_points", "faq", "action_items"],
     summary_length: 5,
   },
   interface: {

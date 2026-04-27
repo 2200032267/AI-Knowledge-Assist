@@ -43,18 +43,26 @@ export function writeUsersDb(users) {
   window.localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
 }
 
-export function getSession() {
-  const token = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
-  const session = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+function readStoredSession(storage) {
+  const token = storage.getItem(AUTH_TOKEN_KEY);
+  const session = storage.getItem(AUTH_SESSION_KEY);
   if (!token || !session) return null;
 
   const userId = verifyToken(token);
   if (!userId) return null;
 
-  const expires = Number(window.sessionStorage.getItem(AUTH_EXPIRES_KEY) || 0);
+  const expires = Number(storage.getItem(AUTH_EXPIRES_KEY) || 0);
   if (expires && expires < Date.now()) return null;
 
-  return { userId, token, expires };
+  return { userId, token, expires, storage };
+}
+
+export function getSession() {
+  return (
+    readStoredSession(window.localStorage) ||
+    readStoredSession(window.sessionStorage) ||
+    null
+  );
 }
 
 export function getCurrentUserFromSession() {
@@ -76,17 +84,34 @@ export function ensureUserDataInitialized(userId, defaultSettings) {
   }
 }
 
-export function loginUserSession(user, defaultSettings) {
+export function loginUserSession(user, defaultSettings, rememberMe = false) {
   const ttlMs = 24 * 60 * 60 * 1000;
   const token = generateToken(user.id, ttlMs);
+  const storage = rememberMe ? window.localStorage : window.sessionStorage;
 
-  window.sessionStorage.setItem(AUTH_SESSION_KEY, user.id);
-  window.sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-  window.sessionStorage.setItem(AUTH_EXPIRES_KEY, String(Date.now() + ttlMs));
-  window.sessionStorage.setItem(
+  // Clear stale auth in both scopes before writing the fresh session.
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_EXPIRES_KEY);
+  window.localStorage.removeItem(AUTH_USER_CACHE_KEY);
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+  window.sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  window.sessionStorage.removeItem(AUTH_EXPIRES_KEY);
+  window.sessionStorage.removeItem(AUTH_USER_CACHE_KEY);
+
+  storage.setItem(AUTH_SESSION_KEY, user.id);
+  storage.setItem(AUTH_TOKEN_KEY, token);
+  storage.setItem(AUTH_EXPIRES_KEY, String(Date.now() + ttlMs));
+  storage.setItem(
     AUTH_USER_CACHE_KEY,
     JSON.stringify({ name: user.name, email: user.email })
   );
+
+  if (rememberMe) {
+    window.localStorage.setItem("rememberMe", "true");
+  } else {
+    window.localStorage.removeItem("rememberMe");
+  }
 
   ensureUserDataInitialized(user.id, defaultSettings);
 
@@ -94,10 +119,15 @@ export function loginUserSession(user, defaultSettings) {
 }
 
 export function logoutUserSession() {
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_EXPIRES_KEY);
+  window.localStorage.removeItem(AUTH_USER_CACHE_KEY);
   window.sessionStorage.removeItem(AUTH_SESSION_KEY);
   window.sessionStorage.removeItem(AUTH_TOKEN_KEY);
   window.sessionStorage.removeItem(AUTH_EXPIRES_KEY);
   window.sessionStorage.removeItem(AUTH_USER_CACHE_KEY);
+  window.localStorage.removeItem("rememberMe");
 }
 
 export function signup({ name, email, password }) {
@@ -133,17 +163,3 @@ export function login({ email, password }) {
   return { ok: true, user };
 }
 
-export function oauthLogin(provider) {
-  const users = readUsersDb();
-  const now = Date.now();
-  const user = {
-    id: `oauth_${provider}_${now}`,
-    email: `${provider}_${now}@example.com`,
-    name: provider === "google" ? "Google User" : "GitHub User",
-    passwordHash: "",
-    createdAt: new Date().toISOString(),
-    provider,
-  };
-  writeUsersDb([...users, user]);
-  return user;
-}

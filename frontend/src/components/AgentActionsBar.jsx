@@ -4,16 +4,27 @@ import { ChevronLeft, Sparkles, X } from "lucide-react";
 import { PERSONA_ACTIONS, UNIVERSAL_ACTIONS } from "../config/agentActions";
 import "./AgentActionsBar.css";
 
-export default function AgentActionsBar({ activeDoc, currentMode, onRunAgent, onToast }) {
+const DEFAULT_ENABLED_ACTIONS = ["summarize", "study_notes", "key_points", "faq", "action_items"];
+
+export default function AgentActionsBar({ activeDoc, currentMode, onRunAgent, onToast, enabledActionIds }) {
   const [activePersona, setActivePersona] = useState(null);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
 
   const isEnabled = currentMode === "document" && Boolean(activeDoc);
 
   const currentActions = useMemo(() => {
-    if (!activePersona) return UNIVERSAL_ACTIONS;
-    return PERSONA_ACTIONS[activePersona]?.actions || UNIVERSAL_ACTIONS;
-  }, [activePersona]);
+    const allowed =
+      Array.isArray(enabledActionIds) && enabledActionIds.length > 0
+        ? new Set(enabledActionIds)
+        : new Set(DEFAULT_ENABLED_ACTIONS);
+
+    const universal = UNIVERSAL_ACTIONS.filter((action) => allowed.has(action.id));
+
+    if (!activePersona) return universal;
+
+    if (activePersona) return PERSONA_ACTIONS[activePersona]?.actions || universal;
+    return universal;
+  }, [activePersona, enabledActionIds]);
 
   const handleRunAction = (action) => {
     if (!isEnabled) {
@@ -69,6 +80,12 @@ export default function AgentActionsBar({ activeDoc, currentMode, onRunAgent, on
                 {action.label}
               </motion.button>
             ))}
+
+            {currentActions.length === 0 && !activePersona ? (
+              <div className="agent-chip" style={{ opacity: 0.7, cursor: "default" }}>
+                Enable actions in Settings
+              </div>
+            ) : null}
 
             {!activePersona ? (
               <motion.button

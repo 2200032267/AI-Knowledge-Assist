@@ -9,6 +9,7 @@ import StreamingText from "../components/StreamingText";
 import "./ChatWithDoc.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const DEFAULT_ENABLED_ACTIONS = ["summarize", "study_notes", "key_points", "faq", "action_items"];
 
 function cosineSimilarity(vecA, vecB) {
   const len = Math.min(vecA?.length || 0, vecB?.length || 0);
@@ -100,6 +101,35 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showAgentBar, setShowAgentBar] = useState(false);
+  const [showSources, setShowSources] = useState(true);
+  const [enabledActionIds, setEnabledActionIds] = useState(DEFAULT_ENABLED_ACTIONS);
+  const [summaryLength, setSummaryLength] = useState(5);
+
+  useEffect(() => {
+    const userId = window.sessionStorage.getItem("session");
+    if (!userId) return;
+
+    const syncFromSettings = () => {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem(`settings_${userId}`) || "{}");
+        setShowSources(stored?.interface?.show_sources !== false);
+        setSummaryLength([3, 5, 8].includes(Number(stored?.agent?.summary_length)) ? Number(stored.agent.summary_length) : 5);
+
+        const enabled = Array.isArray(stored?.agent?.enabled_actions)
+          ? stored.agent.enabled_actions.filter(Boolean)
+          : [];
+        setEnabledActionIds(enabled.length ? enabled : DEFAULT_ENABLED_ACTIONS);
+      } catch {
+        setShowSources(true);
+        setEnabledActionIds(DEFAULT_ENABLED_ACTIONS);
+        setSummaryLength(5);
+      }
+    };
+
+    syncFromSettings();
+    window.addEventListener("storage", syncFromSettings);
+    return () => window.removeEventListener("storage", syncFromSettings);
+  }, []);
 
   useEffect(() => {
     if (!activeDoc?.id) {
@@ -301,7 +331,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
               ) : (
                 <MessageRenderer content={msg.content} isUser={msg.role === "user"} />
               )}
-              {msg.sources ? (
+              {msg.sources && showSources ? (
                 <div className="doc-chat-sources">
                   Sources: {msg.sources.map((s) => `Page ${s.page} (${s.score})`).join(", ")}
                 </div>
@@ -327,6 +357,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
             <AgentActionsBar
               activeDoc={activeDoc}
               currentMode={currentMode}
+              enabledActionIds={enabledActionIds}
               onToast={onToast}
               onRunAgent={async (action) => {
                 if (!activeDoc?.id) {
@@ -355,7 +386,11 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
                 setMessages((prev) => [...prev, userMsg]);
 
                 try {
-                  const prompt = String(action.prompt || "").replace("{text}", fullText.slice(0, 8000));
+                  const actionPrompt =
+                    action.id === "summarize"
+                      ? `Summarize this document in ${summaryLength} bullet points. Focus on main ideas:\n\n{text}`
+                      : String(action.prompt || "");
+                  const prompt = actionPrompt.replace("{text}", fullText.slice(0, 8000));
                   const answer = await callDocumentLlm(prompt);
 
                   const assistantMsg = {

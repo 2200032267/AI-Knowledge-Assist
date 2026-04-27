@@ -14,6 +14,7 @@ import AgentActionsInfo from "./views/AgentActionsInfo";
 import { DEFAULT_SETTINGS } from "./defaultSettings";
 import {
   getSession,
+  getCurrentUserFromSession,
   logoutUserSession,
 } from "./auth";
 
@@ -237,7 +238,9 @@ export default function App() {
 
   const userCache = useMemo(() => {
     try {
-      return JSON.parse(window.sessionStorage.getItem("user_cache") || "{}");
+      const sessionCache = window.sessionStorage.getItem("user_cache");
+      const localCache = window.localStorage.getItem("user_cache");
+      return JSON.parse(sessionCache || localCache || "{}");
     } catch {
       return {};
     }
@@ -282,7 +285,7 @@ export default function App() {
     setToast({ type, message });
     window.setTimeout(() => {
       setToast(null);
-    }, 2500);
+    }, 4000);
   };
 
   const handleLogout = (reason) => {
@@ -300,26 +303,6 @@ export default function App() {
     if (reason) showToast("error", reason);
   };
 
-  const verifySession = () => {
-    const token = window.sessionStorage.getItem("token");
-    const expires = window.sessionStorage.getItem("expires");
-
-    if (!token || !expires) return null;
-
-    if (Date.now() > Number(expires)) {
-      window.sessionStorage.clear();
-      return null;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token));
-      return payload?.userId || null;
-    } catch {
-      window.sessionStorage.clear();
-      return null;
-    }
-  };
-
   const requireValidSession = () => {
     const s = getSession();
     if (!s) {
@@ -331,19 +314,11 @@ export default function App() {
 
   // Check session on mount.
   useEffect(() => {
-    const sessionUserId = verifySession();
-    if (sessionUserId) {
-      try {
-        const users = JSON.parse(window.localStorage.getItem("users") || "[]");
-        const user = users.find((u) => u.id === sessionUserId);
-        if (user) {
-          setCurrentUser(user);
-          setShowLogin(false);
-          return;
-        }
-      } catch {
-        // fall through to landing view
-      }
+    const user = getCurrentUserFromSession();
+    if (user) {
+      setCurrentUser(user);
+      setShowLogin(false);
+      return;
     }
 
     logoutUserSession();
