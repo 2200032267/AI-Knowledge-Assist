@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, FileText, MessageSquare, Trash2 } from "lucide-react";
+import { Clock, FileText, Globe, MessageSquare, Trash2 } from "lucide-react";
 import "./History.css";
 
 function normalizeHistoryItem(item) {
   if (!item || typeof item !== "object") return null;
 
+  const rawMode = String(item.mode || "").toLowerCase();
+  const docName = item.docName || item.doc_name || null;
+  const inferredMode = rawMode === "document" || item.docId || item.doc_id || docName ? "document" : "general";
+
   return {
     id: item.id,
     userId: item.userId || item.user_id || "",
     docId: item.docId || item.doc_id || "",
-    docName: item.docName || item.doc_name || "Unknown document",
+    docName,
+    mode: inferredMode,
     title: item.title || "Untitled conversation",
     createdAt: item.createdAt || item.created_at || item.updatedAt || item.updated_at,
     updatedAt: item.updatedAt || item.updated_at || item.createdAt || item.created_at,
@@ -24,14 +29,16 @@ function formatDate(isoString) {
 
   const now = new Date();
   const diff = now.getTime() - date.getTime();
+  const mins = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (hours < 1) return "Just now";
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function History({ onOpenChat, onToast }) {
@@ -94,7 +101,7 @@ export default function History({ onOpenChat, onToast }) {
         <div className="history-empty">
           <MessageSquare size={48} />
           <h3>No chat history yet</h3>
-          <p>Start a conversation with a document to see it here.</p>
+          <p>Start a conversation to see it here.</p>
         </div>
       ) : (
         <div className="history-list">
@@ -112,8 +119,17 @@ export default function History({ onOpenChat, onToast }) {
                 <h3>{chat.title}</h3>
                 <div className="history-item-subline">
                   <span>
-                    <FileText size={12} />
-                    {chat.docName || "Document chat"}
+                    {chat.mode === "document" && chat.docName ? (
+                      <>
+                        <FileText size={12} />
+                        {chat.docName}
+                      </>
+                    ) : (
+                      <>
+                        <Globe size={12} />
+                        General Chat
+                      </>
+                    )}
                   </span>
                   <span>•</span>
                   <span>

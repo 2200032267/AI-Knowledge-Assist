@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, Send } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
 import { createLocalEmbedding } from "../localEmbedding";
 import AgentActionsBar from "../components/AgentActionsBar";
+import MessageRenderer from "../components/MessageRenderer";
+import StreamingText from "../components/StreamingText";
 import "./ChatWithDoc.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
@@ -95,6 +99,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
   const [chunks, setChunks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [showAgentBar, setShowAgentBar] = useState(false);
 
   useEffect(() => {
     if (!activeDoc?.id) {
@@ -110,16 +115,19 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
     }
 
     setMessages([]);
+    setShowAgentBar(false);
   }, [activeDoc]);
 
   useEffect(() => {
     if (!activeChat || !Array.isArray(activeChat.messages)) return;
-    setMessages(activeChat.messages);
+    setMessages(activeChat.messages.map((m) => ({ ...m, isStreaming: false })));
   }, [activeChat]);
 
   const chunkCountText = useMemo(() => {
     return `${chunks.length} chunks loaded`;
   }, [chunks.length]);
+
+  const isDocumentMode = currentMode === "document" && Boolean(activeDoc);
 
   const saveToHistory = (doc, newMessages) => {
     const userId = window.sessionStorage.getItem("session");
@@ -148,6 +156,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
           role: m.role,
           content: m.content,
           sources: m.sources || [],
+          isStreaming: false,
           timestamp: m.timestamp || now,
         })),
       };
@@ -160,6 +169,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
         role: m.role,
         content: m.content,
         sources: m.sources || [],
+        isStreaming: false,
         timestamp: m.timestamp || now,
       }));
       existing.updatedAt = now;
@@ -206,6 +216,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
           role: "assistant",
           content: "I do not find this information in the selected document.",
           sources: [],
+          isStreaming: true,
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => {
@@ -225,6 +236,7 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
         role: "assistant",
         content: answer,
         prompt,
+        isStreaming: true,
         sources: relevantChunks.map((chunk) => ({
           page: chunk.pageNum || 1,
           score: Number(chunk.score || 0).toFixed(2),
@@ -248,24 +260,47 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
   return (
     <div className="doc-chat-wrap">
       <div className="doc-chat-header">
-        <div className="doc-chat-title-wrap">
-          <FileText size={18} />
-          <div>
-            <p className="doc-chat-title">{activeDoc?.name || "Document"}</p>
-            <p className="doc-chat-subtitle">{chunkCountText}</p>
+        <div className="doc-chat-header-content">
+          <div className="doc-chat-title-wrap">
+            <FileText size={18} />
+            <div>
+              <p className="doc-chat-title">{activeDoc?.name || "Document"}</p>
+              <p className="doc-chat-subtitle">{chunkCountText}</p>
+            </div>
           </div>
+
+          {isDocumentMode ? (
+            <button
+              onClick={() => setShowAgentBar((prev) => !prev)}
+              className={`doc-chat-toggle ${showAgentBar ? "on" : "off"}`}
+            >
+              <Sparkles size={14} />
+              {showAgentBar ? "Agent Actions On" : "Agent Actions Off"}
+            </button>
+          ) : null}
         </div>
       </div>
 
       <div className="doc-chat-messages">
         {messages.map((msg, idx) => (
           <div
-            key={`${msg.role}-${idx}`}
+            key={msg.id || `${msg.role}-${idx}`}
             className={`doc-chat-message-row ${msg.role === "user" ? "user" : "assistant"}`}
           >
             <div className={`doc-chat-message-bubble ${msg.role === "user" ? "user" : "assistant"}`}>
               {msg.isAgent ? <div className="doc-chat-agent-tag">Agent Action</div> : null}
-              <p>{msg.content}</p>
+              {msg.role === "assistant" && msg.isStreaming ? (
+                <StreamingText
+                  text={msg.content}
+                  onComplete={() => {
+                    setMessages((prev) =>
+                      prev.map((m) => (m.id === msg.id ? { ...m, isStreaming: false } : m))
+                    );
+                  }}
+                />
+              ) : (
+                <MessageRenderer content={msg.content} isUser={msg.role === "user"} />
+              )}
               {msg.sources ? (
                 <div className="doc-chat-sources">
                   Sources: {msg.sources.map((s) => `Page ${s.page} (${s.score})`).join(", ")}
@@ -281,61 +316,73 @@ export default function ChatWithDoc({ activeDoc, activeChat, currentMode, onToas
         ) : null}
       </div>
 
-      <AgentActionsBar
-        activeDoc={activeDoc}
-        currentMode={currentMode}
-        onToast={onToast}
-        onRunAgent={async (action) => {
-          if (!activeDoc?.id) {
-            onToast?.("error", "No active document selected");
-            return;
-          }
+      <AnimatePresence>
+        {isDocumentMode && showAgentBar ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <AgentActionsBar
+              activeDoc={activeDoc}
+              currentMode={currentMode}
+              onToast={onToast}
+              onRunAgent={async (action) => {
+                if (!activeDoc?.id) {
+                  onToast?.("error", "No active document selected");
+                  return;
+                }
 
-          const loadedChunks = JSON.parse(window.localStorage.getItem(`chunks_${activeDoc.id}`) || "[]");
-          const fullText = loadedChunks.map((c) => c.text).join("\n\n").trim();
+                const loadedChunks = JSON.parse(window.localStorage.getItem(`chunks_${activeDoc.id}`) || "[]");
+                const fullText = loadedChunks.map((c) => c.text).join("\n\n").trim();
 
-          if (!fullText) {
-            onToast?.("error", "No text found in document");
-            return;
-          }
+                if (!fullText) {
+                  onToast?.("error", "No text found in document");
+                  return;
+                }
 
-          setIsStreaming(true);
-          const now = new Date().toISOString();
-          const userMsg = {
-            id: `msg_${Date.now()}_agent_u`,
-            role: "user",
-            content: `Run: ${action.label}`,
-            isAgent: true,
-            timestamp: now,
-          };
+                setIsStreaming(true);
+                const now = new Date().toISOString();
+                const userMsg = {
+                  id: `msg_${Date.now()}_agent_u`,
+                  role: "user",
+                  content: `Run: ${action.label}`,
+                  isAgent: true,
+                  timestamp: now,
+                };
 
-          setMessages((prev) => [...prev, userMsg]);
+                setMessages((prev) => [...prev, userMsg]);
 
-          try {
-            const prompt = String(action.prompt || "").replace("{text}", fullText.slice(0, 8000));
-            const answer = await callDocumentLlm(prompt);
+                try {
+                  const prompt = String(action.prompt || "").replace("{text}", fullText.slice(0, 8000));
+                  const answer = await callDocumentLlm(prompt);
 
-            const assistantMsg = {
-              id: `msg_${Date.now()}_agent_a`,
-              role: "assistant",
-              content: answer || `No response generated for ${action.label}.`,
-              isAgent: true,
-              actionId: action.id,
-              timestamp: new Date().toISOString(),
-            };
+                  const assistantMsg = {
+                    id: `msg_${Date.now()}_agent_a`,
+                    role: "assistant",
+                    content: answer || `No response generated for ${action.label}.`,
+                    isAgent: true,
+                    actionId: action.id,
+                    isStreaming: true,
+                    timestamp: new Date().toISOString(),
+                  };
 
-            setMessages((prev) => {
-              const next = [...prev, assistantMsg];
-              saveToHistory(activeDoc, next);
-              return next;
-            });
-          } catch {
-            onToast?.("error", "Agent failed");
-          } finally {
-            setIsStreaming(false);
-          }
-        }}
-      />
+                  setMessages((prev) => {
+                    const next = [...prev, assistantMsg];
+                    saveToHistory(activeDoc, next);
+                    return next;
+                  });
+                } catch {
+                  onToast?.("error", "Agent failed");
+                } finally {
+                  setIsStreaming(false);
+                }
+              }}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <div className="doc-chat-input-wrap">
         <input

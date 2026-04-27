@@ -3,11 +3,14 @@ import "./App.css";
 import NewChatButton from "./components/NewChatButton";
 import UserProfileSection from "./components/UserProfileSection";
 import UploadModal from "./components/UploadModal";
+import MessageRenderer from "./components/MessageRenderer";
+import StreamingText from "./components/StreamingText";
 import SettingsPage from "./views/SettingsPage";
 import LandingPage from "./views/LandingPage";
 import SavedDocs from "./views/SavedDocs";
 import ChatWithDoc from "./views/ChatWithDoc";
 import History from "./views/History";
+import AgentActionsInfo from "./views/AgentActionsInfo";
 import { DEFAULT_SETTINGS } from "./defaultSettings";
 import {
   getSession,
@@ -17,11 +20,10 @@ import {
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 const NAV_ITEMS = [
-  { id: "chat", label: "Chat", mode: "chat" },
-  { id: "saved", label: "Saved Docs" },
-  { id: "document", label: "Document Mode", mode: "document" },
   { id: "general", label: "General Mode", mode: "general" },
-  { id: "agent", label: "Agent Actions", mode: "agent" },
+  { id: "document", label: "Document Mode", mode: "document" },
+  { id: "agent", label: "Agent Actions" },
+  { id: "saved", label: "Saved Docs" },
   { id: "history", label: "History" },
 ];
 
@@ -223,6 +225,7 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [activeDoc, setActiveDoc] = useState(null);
   const [activeHistoryChat, setActiveHistoryChat] = useState(null);
+  const [currentChatId, setCurrentChatId] = useState(null);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -260,6 +263,7 @@ export default function App() {
   const navModeLabel = useMemo(() => {
     if (activeView === "settings") return "Settings";
     if (activeView === "saved") return "Saved Docs";
+    if (activeView === "agent") return "Agent Actions";
     if (activeView === "history") return "History";
     const item = NAV_ITEMS.find((i) => i.mode === currentMode);
     return item?.label || "Chat";
@@ -377,6 +381,19 @@ export default function App() {
     window.localStorage.setItem(`currentMode_${userId}`, currentMode);
   }, [currentMode, userId]);
 
+  // Enforce mode consistency: General mode must not carry document context state.
+  useEffect(() => {
+    if (currentMode !== "general") return;
+    if (!activeDoc && !uploadedDoc) return;
+
+    setActiveDoc(null);
+    setUploadedDoc(null);
+    window.sessionStorage.removeItem("activeChunks");
+    if (userId) {
+      window.localStorage.removeItem(`uploadedDocName_${userId}`);
+    }
+  }, [currentMode, activeDoc, uploadedDoc, userId]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
@@ -428,8 +445,78 @@ export default function App() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   };
 
-  const addMessage = (role, text) => {
-    setMessages((prev) => [...prev, { role, text }]);
+  const addMessage = (role, text, options = {}) => {
+    const now = Date.now();
+    const nextMessage = {
+      id: options.id || `msg_${now}_${role}`,
+      role,
+      text,
+      isStreaming: Boolean(options.isStreaming),
+      timestamp: options.timestamp || new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, nextMessage]);
+  };
+
+  const buildHistoryMode = (mode) => (mode === "document" ? "document" : "general");
+
+  const saveConversationToHistory = (nextMessages, { forceNew = false, mode = currentMode } = {}) => {
+    const sessionUserId = window.sessionStorage.getItem("session");
+    if (!sessionUserId || !Array.isArray(nextMessages) || nextMessages.length === 0) return;
+
+    const normalizedMode = buildHistoryMode(mode);
+    const docName =
+      normalizedMode === "document"
+        ? uploadedDoc || activeDoc?.name || activeDoc?.filename || null
+        : null;
+    const docId = normalizedMode === "document" ? activeDoc?.id || null : null;
+
+    const key = `history_${sessionUserId}`;
+    const now = new Date().toISOString();
+    const history = JSON.parse(window.localStorage.getItem(key) || "[]");
+
+    let nextChatId = forceNew ? null : currentChatId;
+    let existingIndex = nextChatId ? history.findIndex((h) => h.id === nextChatId) : -1;
+
+    const mappedMessages = nextMessages.map((m, idx) => ({
+      id: m.id || `msg_${Date.now()}_${idx}`,
+      role: m.role,
+      content: m.text,
+      timestamp: m.timestamp || now,
+    }));
+
+    if (existingIndex === -1) {
+      nextChatId = `chat_${Date.now()}`;
+      setCurrentChatId(nextChatId);
+
+      const firstUserMessage = nextMessages.find((m) => m.role === "user")?.text || "New Chat";
+      const title =
+        firstUserMessage.length > 50 ? `${firstUserMessage.slice(0, 50)}...` : firstUserMessage;
+
+      history.unshift({
+        id: nextChatId,
+        userId: sessionUserId,
+        mode: normalizedMode,
+        docId,
+        docName,
+        title,
+        createdAt: now,
+        updatedAt: now,
+        messages: mappedMessages,
+      });
+    } else {
+      const existing = history[existingIndex];
+      existing.mode = normalizedMode;
+      existing.docId = docId;
+      existing.docName = docName;
+      existing.updatedAt = now;
+      existing.messages = mappedMessages;
+
+      const updated = history.splice(existingIndex, 1)[0];
+      history.unshift(updated);
+    }
+
+    window.localStorage.setItem(key, JSON.stringify(history.slice(0, 100)));
   };
 
   const handleNewChat = async () => {
@@ -477,6 +564,7 @@ export default function App() {
     }
 
     setMessages([]);
+    setCurrentChatId(null);
     setAgentState(null);
     setActiveDoc(null);
     setActiveHistoryChat(null);
@@ -502,7 +590,7 @@ export default function App() {
     if (mode === "document") {
       if (currentMode === "document") return;
       if (!uploadedDoc) {
-        showToast("error", "Upload a PDF first to use Document Mode");
+        setShowUploadModal(true);
         return;
       }
       setCurrentMode("document");
@@ -513,8 +601,16 @@ export default function App() {
     }
 
     if (mode === "general") {
-      if (currentMode === "general") return;
       setCurrentMode("general");
+      setActiveDoc(null);
+      setUploadedDoc(null);
+      setActiveHistoryChat(null);
+      setMessages([]);
+      setInput("");
+      window.sessionStorage.removeItem("activeChunks");
+      if (userId) {
+        window.localStorage.removeItem(`uploadedDocName_${userId}`);
+      }
       setActiveView("chat");
       closeSidebar();
       showToast("success", "General Mode activated");
@@ -550,11 +646,7 @@ export default function App() {
   };
 
   const onCardClick = (prompt) => {
-    setInput(prompt);
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      autoResize();
-    });
+    sendMessage(prompt);
   };
 
   const uploadDocument = async (file, options = {}) => {
@@ -634,13 +726,15 @@ export default function App() {
     addMessage("assistant", "Document removed. You can upload a new document to chat about it.");
   };
 
-  const sendMessage = async () => {
+  const sendMessage = async (overrideText) => {
     if (!requireValidSession()) return;
-    const text = input.trim();
+    const text = String(overrideText ?? input).trim();
     if (!text || sending) return;
 
     addMessage("user", text);
-    setInput("");
+    if (overrideText == null) {
+      setInput("");
+    }
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -667,13 +761,47 @@ export default function App() {
 
       const data = await safeJson(res);
       if (!res.ok) {
-        addMessage("assistant", data?.detail || "Request failed.");
+        const assistantError = {
+          id: `msg_${Date.now()}_assistant`,
+          role: "assistant",
+          text: data?.detail || "Request failed.",
+          isStreaming: false,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => {
+          const next = [...prev, assistantError];
+          saveConversationToHistory(next);
+          return next;
+        });
         return;
       }
 
-      addMessage("assistant", data?.answer || "I don't know");
+      const assistantMessage = {
+        id: `msg_${Date.now()}_assistant`,
+        role: "assistant",
+        text: data?.answer || "I don't know",
+        isStreaming: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages((prev) => {
+        const next = [...prev, assistantMessage];
+        saveConversationToHistory(next);
+        return next;
+      });
     } catch {
-      addMessage("assistant", "Server error.");
+      const assistantError = {
+        id: `msg_${Date.now()}_assistant`,
+        role: "assistant",
+        text: "Server error.",
+        isStreaming: false,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => {
+        const next = [...prev, assistantError];
+        saveConversationToHistory(next);
+        return next;
+      });
     } finally {
       setSending(false);
     }
@@ -711,40 +839,36 @@ export default function App() {
 
             <nav className="sidebar-nav">
               {NAV_ITEMS.map((item) => {
-                const active = item.id === "chat"
-                  ? activeView === "chat"
-                  : item.mode
+                const active = item.mode
                     ? item.mode === currentMode && activeView === "chat"
                     : activeView === item.id;
-
                 const isDocumentMode = item.id === "document";
-                const isAgentMode = item.id === "agent";
-
-                const isDisabled =
-                  (isDocumentMode && !uploadedDoc) ||
-                  (isAgentMode && !uploadedDoc);
-
-                const title = isDisabled && isDocumentMode ? "Upload a PDF first" : "";
+                const title = isDocumentMode && !uploadedDoc ? "Upload a PDF to enter Document Mode" : "";
 
                 return (
                   <button
                     key={item.id}
-                    className={`nav-item ${active ? "active" : ""} ${isDisabled ? "disabled" : ""}`}
-                    disabled={isDisabled}
+                    className={`nav-item ${active ? "active" : ""}`}
                     title={title}
                     onClick={() => {
-                      if (item.id === "chat") {
-                        handleChatNavClick();
-                        return;
-                      }
-
                       if (item.mode) {
+                        if (item.id === "document" && !uploadedDoc) {
+                          setShowUploadModal(true);
+                          closeSidebar();
+                          return;
+                        }
                         setMode(item.mode);
                         return;
                       }
 
                       if (item.id === "saved") {
                         setActiveView("saved");
+                        closeSidebar();
+                        return;
+                      }
+
+                      if (item.id === "agent") {
+                        setActiveView("agent");
                         closeSidebar();
                         return;
                       }
@@ -757,7 +881,7 @@ export default function App() {
                   >
                     {navIconById(item.id)}
                     {item.label}
-                    {item.id === "chat" && hasUnsavedMessages && activeView !== "chat" ? (
+                    {item.id === "general" && hasUnsavedMessages && activeView !== "chat" ? (
                       <div className="nav-badge-dot" aria-label="unsaved messages" />
                     ) : null}
 
@@ -870,20 +994,46 @@ export default function App() {
                 <History
                   onToast={showToast}
                   onOpenChat={(chatHistory) => {
-                    const doc = {
-                      id: chatHistory.docId,
-                      name: chatHistory.docName,
-                      filename: chatHistory.docName,
-                    };
+                    const mode = chatHistory?.mode === "document" ? "document" : "general";
 
-                    if (doc.id) setActiveDoc(doc);
-                    setActiveHistoryChat(chatHistory);
-                    setUploadedDoc(chatHistory.docName || null);
-                    setCurrentMode("document");
+                    setCurrentChatId(chatHistory?.id || null);
+
+                    if (mode === "document") {
+                      const doc = {
+                        id: chatHistory.docId,
+                        name: chatHistory.docName,
+                        filename: chatHistory.docName,
+                      };
+
+                      if (doc.id) setActiveDoc(doc);
+                      setActiveHistoryChat(chatHistory);
+                      setUploadedDoc(chatHistory.docName || null);
+                      setCurrentMode("document");
+                      setMessages([]);
+                    } else {
+                      setActiveDoc(null);
+                      setActiveHistoryChat(null);
+                      setUploadedDoc(null);
+                      setCurrentMode("general");
+                      setMessages(
+                        (chatHistory?.messages || []).map((m, idx) => ({
+                          id: m.id || `msg_${chatHistory?.id || "history"}_${idx}`,
+                          role: m.role,
+                          text: m.content || m.text || "",
+                          isStreaming: false,
+                          timestamp: m.timestamp || new Date().toISOString(),
+                        }))
+                      );
+                    }
+
                     setActiveView("chat");
                     closeSidebar();
                   }}
                 />
+              )}
+
+              {activeView === "agent" && (
+                <AgentActionsInfo activeDoc={activeDoc} />
               )}
 
               {showDocContextChat && (
@@ -933,11 +1083,26 @@ export default function App() {
                 <div className="chat-container active" id="chatContainer">
                   {messages.map((m, idx) => (
                     <div
-                      key={`${m.role}-${idx}`}
+                      key={m.id || `${m.role}-${idx}`}
                       className={`message ${m.role === "user" ? "user-message" : "assistant-message"}`}
                     >
                       <div className="message-avatar">{m.role === "user" ? userInitials : "AI"}</div>
-                      <div className="message-content">{m.text}</div>
+                      <div className="message-content">
+                        {m.role === "assistant" && m.isStreaming ? (
+                          <StreamingText
+                            text={m.text}
+                            onComplete={() => {
+                              setMessages((prev) =>
+                                prev.map((item) =>
+                                  item.id === m.id ? { ...item, isStreaming: false } : item
+                                )
+                              );
+                            }}
+                          />
+                        ) : (
+                          <MessageRenderer content={m.text} isUser={m.role === "user"} />
+                        )}
+                      </div>
                     </div>
                   ))}
                   {sending && (
@@ -954,7 +1119,7 @@ export default function App() {
             <div className="input-area" style={{ display: activeView === "chat" && !showDocContextChat ? "block" : "none" }}>
               <div className="input-wrapper">
                 <div className="doc-chips" id="docChips">
-                  {uploadedDoc && (
+                  {currentMode === "document" && uploadedDoc && (
                     <div className="doc-chip">
                       <IconFile />
                       <span>{uploadedDoc}</span>
@@ -965,7 +1130,11 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="quick-actions" id="quickActions" style={{ display: uploadedDoc ? "flex" : "none" }}>
+                <div
+                  className="quick-actions"
+                  id="quickActions"
+                  style={{ display: currentMode === "document" && uploadedDoc ? "flex" : "none" }}
+                >
                   {QUICK_ACTIONS.map((a) => (
                     <button
                       key={a.id}

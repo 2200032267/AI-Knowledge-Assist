@@ -1,205 +1,235 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, ChevronRight, GraduationCap, Code, BarChart3, Scale, Info } from 'lucide-react';
-import { PERSONA_ACTIONS } from '../config/agentActions';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-const AgentActionsInfo = ({ activeDoc }) => {
-  const [expandedPersona, setExpandedPersona] = useState(null);
-  const [selectedAction, setSelectedAction] = useState(null);
+const VoiceInput = ({ 
+  onTranscript, // Updates input box text
+  onAutoSend, // Fires when user stops talking
+  disabled = false // Disable during AI response
+}) => {
+  const [isListening, setIsListening] = useState(false);
+  const [isSupported, setIsSupported] = useState(true);
+  const recognitionRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const finalTranscriptRef = useRef('');
 
-  const personaIcons = {
-    student: <GraduationCap size={24} />,
-    software: <Code size={24} />,
-    business: <BarChart3 size={24} />,
-    legal: <Scale size={24} />
+  useEffect(() => {
+    // Check browser support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      setIsSupported(false);
+      console.warn('Speech recognition not supported in this browser');
+      return;
+    }
+
+    // Init recognition
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true; // Keep listening
+    recognitionRef.current.interimResults = true; // Real-time results
+    recognitionRef.current.lang = 'en-US';
+    recognitionRef.current.maxAlternatives = 1;
+
+    // When speech is detected
+    recognitionRef.current.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Update input box with current transcript
+      const fullText = finalTranscriptRef.current + finalTranscript + interimTranscript;
+      onTranscript(fullText);
+
+      // Reset silence timer - user is still talking
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+
+      // If we have final text, start silence detection
+      if (finalTranscript) {
+        finalTranscriptRef.current += finalTranscript;
+        
+        // Auto-send after 1.5s of silence
+        silenceTimerRef.current = setTimeout(() => {
+          if (finalTranscriptRef.current.trim()) {
+            onAutoSend(finalTranscriptRef.current.trim());
+            finalTranscriptRef.current = '';
+            stopListening();
+          }
+        }, 1500);
+      }
+    };
+
+    // Handle errors
+    recognitionRef.current.onerror = (event) => {
+      console.error('Speech error:', event.error);
+      if (event.error === 'not-allowed') {
+        toast.error('Mic permission denied. Enable in browser settings.');
+      } else if (event.error === 'no-speech') {
+        toast.error('No speech detected. Try again.');
+      } else {
+        toast.error('Voice input error. Try again.');
+      }
+      stopListening();
+    };
+
+    // When recognition ends
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [onTranscript, onAutoSend]);
+
+  const startListening = async () => {
+    if (!isSupported) {
+      toast.error('Voice input not supported in Firefox. Use Chrome/Edge.');
+      return;
+    }
+
+    try {
+      // Request mic permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      finalTranscriptRef.current = '';
+      onTranscript(''); // Clear input
+      recognitionRef.current?.start();
+      setIsListening(true);
+      toast.success('Listening... Speak now', { duration: 2000 });
+    } catch (err) {
+      toast.error('Mic access denied');
+    }
   };
 
-  const isEnabled = !!activeDoc;
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  if (!isSupported) {
+    return (
+      <button
+        disabled
+        className="p-2 text-[#444] cursor-not-allowed"
+        title="Voice not supported in Firefox"
+      >
+        <MicOff size={20} />
+      </button>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto bg-[#0D0D0D] text-white min-h-screen">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-12 h-12 bg-[#1ABC9C1A] rounded-lg flex items-center justify-center">
-          <Zap className="text-[#1ABC9C]" size={24} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">Agent Actions</h1>
-          <p className="text-sm text-[#B0B0B0]">
-            Pre-built AI workflows for your documents
-          </p>
-        </div>
-      </div>
-
-      {/* Status Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`p-4 rounded-lg border mb-6 ${
-          isEnabled
-           ? 'bg-[#1ABC9C1A] border-[#1ABC9C]'
-            : 'bg-[#1A1A1A] border-[#2A2A2A]'
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          <Info size={18} className={isEnabled? 'text-[#1ABC9C]' : 'text-[#B0B0B0]'} />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white mb-1">
-              {isEnabled? 'Agent Actions Active' : 'Upload PDF to Enable'}
-            </p>
-            <p className="text-xs text-[#B0B0B0]">
-              {isEnabled
-               ? `Working on: ${activeDoc.name}. Click any action in chat to run.`
-                : 'Switch to Document Mode and upload a PDF to unlock 30+ AI actions'}
-            </p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Universal Actions Info */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold text-white mb-3">Universal Actions</h2>
-        <p className="text-sm text-[#B0B0B0] mb-4">
-          Available for all documents - 5 core actions
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[
-            { icon: '📄', name: 'Summarize', desc: '5-7 bullet point overview' },
-            { icon: '📝', name: 'Study Notes', desc: 'Detailed notes with headings' },
-            { icon: '🎯', name: 'Key Points', desc: 'Top 5 most important facts' },
-            { icon: '❓', name: 'FAQ', desc: '5-10 Q&A pairs from content' },
-            { icon: '✅', name: 'Action Items', desc: 'Todos, deadlines, owners' }
-          ].map(action => (
-            <div
-              key={action.name}
-              className="p-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xl">{action.icon}</span>
-                <span className="font-medium text-white">{action.name}</span>
-              </div>
-              <p className="text-xs text-[#B0B0B0]">{action.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Persona Cards */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Persona Actions</h2>
-        <p className="text-sm text-[#B0B0B0] mb-4">
-          4 specialized personas with {Object.values(PERSONA_ACTIONS).reduce((sum, p) => sum + p.actions.length, 0)} actions total
-        </p>
-
-        <div className="space-y-3">
-          {Object.entries(PERSONA_ACTIONS).map(([key, persona]) => (
-            <motion.div
-              key={key}
-              layout
-              className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg overflow-hidden"
-            >
-              {/* Persona Header */}
-              <button
-                onClick={() => setExpandedPersona(expandedPersona === key? null : key)}
-                className="w-full p-4 flex items-center justify-between hover:bg-[#2A2A2A] transition"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: `${persona.color}1A`, color: persona.color }}
-                  >
-                    {personaIcons[key]}
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-medium text-white">{persona.name}</h3>
-                    <p className="text-xs text-[#B0B0B0]">
-                      {persona.actions.length} specialized actions
-                    </p>
-                  </div>
-                </div>
-                <motion.div
-                  animate={{ rotate: expandedPersona === key? 90 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ChevronRight size={18} className="text-[#B0B0B0]" />
-                </motion.div>
-              </button>
-
-              {/* Expanded Actions List */}
-              <AnimatePresence>
-                {expandedPersona === key && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="border-t border-[#2A2A2A]"
-                  >
-                    <div className="p-4 space-y-2">
-                      {persona.actions.map((action) => (
-                        <motion.button
-                          key={action.id}
-                          initial={{ x: -10, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          whileHover={{ x: 4 }}
-                          onClick={() => setSelectedAction(action)}
-                          className="w-full p-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg hover:border-[#1ABC9C] transition text-left"
-                        >
-                          <p className="text-sm font-medium text-white mb-1">
-                            • {action.label}
-                          </p>
-                          <p className="text-xs text-[#B0B0B0] line-clamp-1">
-                            {action.prompt.split('\n')[0]}
-                          </p>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Action Detail Modal */}
-      <AnimatePresence>
-        {selectedAction && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedAction(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#0D0D0D] border border-[#1A1A1A] rounded-xl p-6 w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-bold text-white mb-2">
-                {selectedAction.label}
-              </h3>
-              <p className="text-sm text-[#B0B0B0] mb-4">Prompt Template:</p>
-              <div className="p-3 bg-[#1A1A1A] rounded-lg border border-[#2A2A2A]">
-                <code className="text-xs text-[#1ABC9C] whitespace-pre-wrap">
-                  {selectedAction.prompt}
-                </code>
-              </div>
-              <button
-                onClick={() => setSelectedAction(null)}
-                className="mt-4 w-full px-4 py-2 bg-[#1ABC9C] text-black rounded-lg font-medium"
-              >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <button
+      onClick={toggleListening}
+      disabled={disabled}
+      className={`p-2 rounded-lg transition-all duration-200 ${
+        isListening 
+        ? 'bg-red-500/20 text-red-400 animate-pulse' 
+          : 'text-[#B0B0B0] hover:bg-[#2A2A2A] hover:text-white'
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
+      title={isListening? 'Stop recording' : 'Voice input'}
+    >
+      {isListening? <MicOff size={20} /> : <Mic size={20} />}
+    </button>
   );
 };
 
-export default AgentActionsInfo;
+export default VoiceInput;
+
+import VoiceInput from './VoiceInput';
+import { Send, Upload } from 'lucide-react';
+
+const ChatInput = () => {
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { handleSendMessage } = useChat();
+
+  // Fired when voice stops for 1.5s
+  const handleVoiceAutoSend = (transcript) => {
+    if (transcript.trim()) {
+      handleSendMessage(transcript);
+      setInput(''); // Clear after send
+    }
+  };
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
+    handleSendMessage(input);
+    setInput('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' &&!e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="border-t border-[#1A1A1A] p-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-end gap-2 bg-[#1A1A1A] rounded-lg p-2 border border-[#2A2A2A]">
+          <button className="p-2 text-[#B0B0B0] hover:text-white">
+            <Upload size={20} />
+          </button>
+          
+          <VoiceInput 
+            onTranscript={setInput} // Updates input as you speak
+            onAutoSend={handleVoiceAutoSend} // Sends when you stop talking
+            disabled={isLoading}
+          />
+
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me anything..."
+            rows={1}
+            className="flex-1 bg-transparent text-white outline-none resize-none max-h-32 py-2"
+            disabled={isLoading}
+          />
+          
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="p-2 bg-[#1ABC9C] text-black rounded-lg hover:bg-[#16A085] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send size={20} />
+          </button>
+        </div>
+        <p className="text-xs text-[#666] text-center mt-2">
+          AI can make mistakes. Verify important info.
+        </p>
+      </div>
+    </div>
+  );
+};
