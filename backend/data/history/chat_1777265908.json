@@ -1,0 +1,18 @@
+{
+  "id": "chat_1777265908",
+  "title": "Summarize this document in 5 bullet poin",
+  "mode": "document",
+  "doc_id": null,
+  "doc_name": "sample_ai_document.pdf",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize this document in 5 bullet points"
+    },
+    {
+      "role": "assistant",
+      "content": "- Retrieval-Augmented Generation (RAG) combines information retrieval with text generation and helps reduce hallucination in large language models (LLMs).\n- LLMs, such as GPT, are trained on vast amounts of text data and can generate human-like responses, though they can sometimes produce incorrect information. Vector databases reduce this risk by providing embeddings for efficient similarity search.\n- Ethical considerations in AI include bias, fairness, and transparency. Responsible AI practices ensure safety, reliability, and trustworthiness. Technologies like these are used in healthcare, finance, education, and automation to improve efficiency, accuracy, and decision-making.\n- AI, defined as building systems that mimic human intelligence, includes tasks such as problem-solving, decision-making, language understanding, and perception. Machine Learning (ML) enables systems to learn from data and improve, while Deep Learning, a subset of ML, uses multi-layer neural networks.\n- Natural Language Processing (NLP) helps machines understand and generate human language, with applications such as chatbots and translation systems. "
+    }
+  ],
+  "updated_at": "2026-04-27T10:28:28"
+}

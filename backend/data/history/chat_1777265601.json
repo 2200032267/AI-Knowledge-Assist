@@ -1,0 +1,14 @@
+{
+  "id": "chat_1777265601",
+  "title": "Summarize this document in 5 bullet poin",
+  "mode": "general",
+  "doc_id": null,
+  "doc_name": "sample_ai_document.pdf",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize this document in 5 bullet points"
+    }
+  ],
+  "updated_at": "2026-04-27T10:23:21"
+}

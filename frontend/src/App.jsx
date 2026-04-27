@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import NewChatButton from "./components/NewChatButton";
+import UserProfileSection from "./components/UserProfileSection";
+import UploadModal from "./components/UploadModal";
 import SettingsPage from "./views/SettingsPage";
 import LandingPage from "./views/LandingPage";
+import SavedDocs from "./views/SavedDocs";
+import ChatWithDoc from "./views/ChatWithDoc";
+import History from "./views/History";
 import { DEFAULT_SETTINGS } from "./defaultSettings";
 import {
-  getCurrentUserFromSession,
   getSession,
   logoutUserSession,
 } from "./auth";
@@ -128,25 +132,6 @@ function IconClock() {
   );
 }
 
-function IconSettings() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="M12 1v6m0 6v6m8.66-15.34l-4.24 4.24m-8.84 0L3.34 3.34m15.32 15.32l-4.24-4.24m-8.84 0l-4.24 4.24"></path>
-    </svg>
-  );
-}
-
-function IconLogout() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-      <polyline points="16 17 21 12 16 7"></polyline>
-      <line x1="21" y1="12" x2="9" y2="12"></line>
-    </svg>
-  );
-}
-
 function IconLayers() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -235,13 +220,15 @@ export default function App() {
   const [agentState, setAgentState] = useState(null);
   const [activeView, setActiveView] = useState("chat");
   const [toast, setToast] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeDoc, setActiveDoc] = useState(null);
+  const [activeHistoryChat, setActiveHistoryChat] = useState(null);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   const userId = currentUser?.id || null;
 
@@ -265,12 +252,15 @@ export default function App() {
     return `${a}${b || ""}`.toUpperCase();
   }, [userName]);
 
-  const showEmptyState = activeView === "chat" && messages.length === 0;
-  const showChat = activeView === "chat" && messages.length > 0;
+  const showDocContextChat = activeView === "chat" && currentMode === "document" && Boolean(activeDoc?.id);
+  const showEmptyState = activeView === "chat" && messages.length === 0 && !showDocContextChat;
+  const showChat = activeView === "chat" && messages.length > 0 && !showDocContextChat;
   const hasUnsavedMessages = messages.length > 0;
 
   const navModeLabel = useMemo(() => {
     if (activeView === "settings") return "Settings";
+    if (activeView === "saved") return "Saved Docs";
+    if (activeView === "history") return "History";
     const item = NAV_ITEMS.find((i) => i.mode === currentMode);
     return item?.label || "Chat";
   }, [currentMode, activeView]);
@@ -294,13 +284,36 @@ export default function App() {
   const handleLogout = (reason) => {
     logoutUserSession();
     setCurrentUser(null);
-    setShowLogin(false);
+    setShowLogin(true);
+    setSidebarOpen(false);
+    setActiveDoc(null);
+    setActiveHistoryChat(null);
     setActiveView("chat");
     setMessages([]);
     setUploadedDoc(null);
     setCurrentMode("chat");
     setInput("");
     if (reason) showToast("error", reason);
+  };
+
+  const verifySession = () => {
+    const token = window.sessionStorage.getItem("token");
+    const expires = window.sessionStorage.getItem("expires");
+
+    if (!token || !expires) return null;
+
+    if (Date.now() > Number(expires)) {
+      window.sessionStorage.clear();
+      return null;
+    }
+
+    try {
+      const payload = JSON.parse(atob(token));
+      return payload?.userId || null;
+    } catch {
+      window.sessionStorage.clear();
+      return null;
+    }
   };
 
   const requireValidSession = () => {
@@ -314,12 +327,22 @@ export default function App() {
 
   // Check session on mount.
   useEffect(() => {
-    const user = getCurrentUserFromSession();
-    if (user) {
-      setCurrentUser(user);
-      setShowLogin(false);
-      return;
+    const sessionUserId = verifySession();
+    if (sessionUserId) {
+      try {
+        const users = JSON.parse(window.localStorage.getItem("users") || "[]");
+        const user = users.find((u) => u.id === sessionUserId);
+        if (user) {
+          setCurrentUser(user);
+          setShowLogin(false);
+          return;
+        }
+      } catch {
+        // fall through to landing view
+      }
     }
+
+    logoutUserSession();
     // No session -> show landing. (Modal opens from landing CTA)
     setCurrentUser(null);
     setShowLogin(true);
@@ -411,7 +434,7 @@ export default function App() {
 
   const handleNewChat = async () => {
     if (!requireValidSession()) return;
-    // Spec: reset conversation, NOT mode or uploaded document.
+    // Start a truly fresh chat session across modes.
     // Best-effort: save chat history if there were messages.
     const hadMessages = messages.length > 0;
 
@@ -455,9 +478,16 @@ export default function App() {
 
     setMessages([]);
     setAgentState(null);
+    setActiveDoc(null);
+    setActiveHistoryChat(null);
+    setUploadedDoc(null);
+    if (userId) window.localStorage.removeItem(`uploadedDocName_${userId}`);
+    window.sessionStorage.removeItem("activeChunks");
+    setCurrentMode("general");
     setActiveView("chat");
     closeSidebar();
     setInput("");
+    showToast("success", "New chat started");
 
     requestAnimationFrame(() => {
       if (textareaRef.current) {
@@ -496,16 +526,11 @@ export default function App() {
         showToast("error", "Upload a PDF first to use Agent Actions");
         return;
       }
-      if (currentMode === "agent") {
-        setActiveView("chat");
-        closeSidebar();
-        return;
-      }
-      // Agent actions are document-backed in this app.
-      setCurrentMode("agent");
+      // Agent actions are document-backed and run inside Document Mode chat.
+      setCurrentMode("document");
       setActiveView("chat");
       closeSidebar();
-      showToast("success", "Agent Actions activated");
+      showToast("success", "Agent Actions ready");
       return;
     }
 
@@ -532,12 +557,13 @@ export default function App() {
     });
   };
 
-  const uploadDocument = async (file) => {
-    if (!requireValidSession()) return;
-    if (!file) return;
+  const uploadDocument = async (file, options = {}) => {
+    const { skipLocalPersist = false } = options;
+    if (!requireValidSession()) return { ok: false, error: "Session expired" };
+    if (!file) return { ok: false, error: "No file selected" };
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       addMessage("assistant", "Only PDF files are supported right now.");
-      return;
+      return { ok: false, error: "Only PDF files are supported" };
     }
 
     setSending(true);
@@ -549,27 +575,38 @@ export default function App() {
       const data = await safeJson(res);
       if (!res.ok) {
         addMessage("assistant", data?.detail || "Upload failed.");
-        return;
+        return { ok: false, error: data?.detail || "Upload failed" };
       }
 
       const name = data?.filename || file.name;
       setUploadedDoc(name);
       window.localStorage.setItem(`uploadedDocName_${userId}`, name);
 
-      // Persist a lightweight docs list for Settings/Data view.
-      try {
-        const key = `docs_${userId}`;
-        const existing = JSON.parse(window.localStorage.getItem(key) || "[]");
-        const entry = {
-          filename: name,
-          original_name: file.name,
-          size_bytes: file.size,
-          uploaded_at: new Date().toISOString(),
-        };
-        const next = [entry, ...existing.filter((d) => d.filename !== name)].slice(0, 50);
-        window.localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // ignore localStorage failures
+      if (!skipLocalPersist) {
+        // Fallback path for direct uploads without modal pipeline.
+        try {
+          const key = `docs_${userId}`;
+          const existing = JSON.parse(window.localStorage.getItem(key) || "[]");
+          const createdAt = new Date().toISOString();
+          const docId = `d${Date.now()}`;
+          const entry = {
+            id: docId,
+            name,
+            filename: name,
+            original_name: file.name,
+            size: file.size,
+            size_bytes: file.size,
+            uploadedAt: createdAt,
+            uploaded_at: createdAt,
+            chunkCount: Number(data?.chunks || 0),
+            pageCount: 1,
+            fileRef: `server://${name}`,
+          };
+          const next = [entry, ...existing.filter((d) => (d.filename || d.name) !== name)].slice(0, 50);
+          window.localStorage.setItem(key, JSON.stringify(next));
+        } catch {
+          // ignore localStorage failures
+        }
       }
 
       setCurrentMode("document");
@@ -577,8 +614,10 @@ export default function App() {
         "assistant",
         `Document "${name}" uploaded successfully. You can now ask questions about it or use the quick actions above.`
       );
+      return { ok: true, filename: name };
     } catch {
       addMessage("assistant", "Upload failed (server error).");
+      return { ok: false, error: "Upload failed (server error)" };
     } finally {
       setSending(false);
     }
@@ -586,6 +625,7 @@ export default function App() {
 
   const removeDocument = () => {
     setUploadedDoc(null);
+    setActiveDoc(null);
     if (userId) window.localStorage.removeItem(`uploadedDocName_${userId}`);
     if (currentMode === "document" || currentMode === "agent") {
       setCurrentMode("general");
@@ -664,25 +704,20 @@ export default function App() {
         <div className="app-container">
           <aside className={`sidebar ${sidebarOpen ? "active" : ""}`} id="sidebar">
             <div className="sidebar-header">
-              <div className="user-profile">
-                <div className="avatar">{userInitials}</div>
-                <div className="user-info">
-                  <div className="user-name">{userName}</div>
-                  <div className="user-email">{userEmail}</div>
-                </div>
-              </div>
               <NewChatButton
-                disabled={messages.length === 0 && activeView === "chat"}
                 onClick={handleNewChat}
               />
             </div>
 
             <nav className="sidebar-nav">
               {NAV_ITEMS.map((item) => {
-                const active = item.id === "chat" ? activeView === "chat" : item.mode && item.mode === currentMode;
+                const active = item.id === "chat"
+                  ? activeView === "chat"
+                  : item.mode
+                    ? item.mode === currentMode && activeView === "chat"
+                    : activeView === item.id;
 
                 const isDocumentMode = item.id === "document";
-                const isGeneralMode = item.id === "general";
                 const isAgentMode = item.id === "agent";
 
                 const isDisabled =
@@ -702,7 +737,22 @@ export default function App() {
                         handleChatNavClick();
                         return;
                       }
-                      if (item.mode) setMode(item.mode);
+
+                      if (item.mode) {
+                        setMode(item.mode);
+                        return;
+                      }
+
+                      if (item.id === "saved") {
+                        setActiveView("saved");
+                        closeSidebar();
+                        return;
+                      }
+
+                      if (item.id === "history") {
+                        setActiveView("history");
+                        closeSidebar();
+                      }
                     }}
                   >
                     {navIconById(item.id)}
@@ -721,22 +771,22 @@ export default function App() {
               })}
 
               <div className="nav-divider"></div>
-
-              <button className={`nav-item ${activeView === "settings" ? "active" : ""}`} onClick={handleSettingsNavClick}>
-                <IconSettings />
-                Settings
-              </button>
-              <button
-                className="nav-item"
-                onClick={() => {
-                  showToast("success", "Logged out");
-                  handleLogout();
-                }}
-              >
-                <IconLogout />
-                Log Out
-              </button>
             </nav>
+
+            <UserProfileSection
+              currentUser={currentUser}
+              userName={userName}
+              userEmail={userEmail}
+              userInitials={userInitials}
+              onOpenSettings={() => {
+                handleSettingsNavClick();
+                setSidebarOpen(false);
+              }}
+              onLogout={() => {
+                handleLogout();
+              }}
+              onToast={showToast}
+            />
           </aside>
 
           <div
@@ -781,6 +831,67 @@ export default function App() {
                     }
                     setCurrentUser((prev) => (prev ? { ...prev, name: profile?.name || prev.name } : prev));
                   }}
+                />
+              )}
+
+              {activeView === "saved" && (
+                <SavedDocs
+                  onToast={showToast}
+                  onUploadClick={() => {
+                    setShowUploadModal(true);
+                  }}
+                  onOpenDoc={(doc) => {
+                    const nextName = doc?.filename || doc?.name;
+                    if (!nextName) return;
+                    setActiveHistoryChat(null);
+                    setActiveDoc(doc);
+                    setUploadedDoc(nextName);
+                    setCurrentMode("document");
+                    if (userId) window.localStorage.setItem(`uploadedDocName_${userId}`, nextName);
+                    setActiveView("chat");
+                    closeSidebar();
+                  }}
+                  onDocumentDeleted={(doc) => {
+                    const deletedName = doc?.filename || doc?.name;
+                    if (deletedName && uploadedDoc === deletedName) {
+                      setUploadedDoc(null);
+                      if (currentMode === "document" || currentMode === "agent") {
+                        setCurrentMode("general");
+                      }
+                    }
+                    if (doc?.id && activeDoc?.id === doc.id) {
+                      setActiveDoc(null);
+                    }
+                  }}
+                />
+              )}
+
+              {activeView === "history" && (
+                <History
+                  onToast={showToast}
+                  onOpenChat={(chatHistory) => {
+                    const doc = {
+                      id: chatHistory.docId,
+                      name: chatHistory.docName,
+                      filename: chatHistory.docName,
+                    };
+
+                    if (doc.id) setActiveDoc(doc);
+                    setActiveHistoryChat(chatHistory);
+                    setUploadedDoc(chatHistory.docName || null);
+                    setCurrentMode("document");
+                    setActiveView("chat");
+                    closeSidebar();
+                  }}
+                />
+              )}
+
+              {showDocContextChat && (
+                <ChatWithDoc
+                  activeDoc={activeDoc}
+                  activeChat={activeHistoryChat}
+                  currentMode={currentMode}
+                  onToast={showToast}
                 />
               )}
 
@@ -840,7 +951,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="input-area" style={{ display: activeView === "chat" ? "block" : "none" }}>
+            <div className="input-area" style={{ display: activeView === "chat" && !showDocContextChat ? "block" : "none" }}>
               <div className="input-wrapper">
                 <div className="doc-chips" id="docChips">
                   {uploadedDoc && (
@@ -877,7 +988,7 @@ export default function App() {
                     <button
                       className="icon-btn"
                       title="Upload document"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => setShowUploadModal(true)}
                       disabled={sending}
                     >
                       <IconUpload />
@@ -925,18 +1036,28 @@ export default function App() {
               </div>
             </div>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden-input"
-              accept=".pdf"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                await uploadDocument(file);
-                e.target.value = "";
-              }}
-            />
+            {showUploadModal && (
+              <UploadModal
+                onClose={() => setShowUploadModal(false)}
+                onToast={showToast}
+                onBackendUpload={async (file) => {
+                  const result = await uploadDocument(file, { skipLocalPersist: true });
+                  if (result?.ok) {
+                    setActiveView("chat");
+                    closeSidebar();
+                  }
+                  return result;
+                }}
+                onUploadComplete={(savedDoc) => {
+                  if (!savedDoc) return;
+                  setActiveHistoryChat(null);
+                  setActiveDoc(savedDoc);
+                  setCurrentMode("document");
+                  setUploadedDoc(savedDoc.filename || savedDoc.name || null);
+                  setActiveView("chat");
+                }}
+              />
+            )}
           </main>
         </div>
       )}

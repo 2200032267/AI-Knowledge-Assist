@@ -1,0 +1,139 @@
+.history-page {
+  padding: 24px;
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: 100%;
+  color: var(--text-primary);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.history-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.history-clear-all {
+  border: none;
+  background: transparent;
+  color: #f87171;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.history-clear-all:hover {
+  color: #fca5a5;
+}
+
+.history-empty {
+  text-align: center;
+  border: 2px dashed var(--border-color);
+  border-radius: 14px;
+  padding: 54px 24px;
+  color: var(--text-muted);
+}
+
+.history-empty h3 {
+  margin: 12px 0 8px;
+  color: var(--text-primary);
+}
+
+.history-empty p {
+  margin: 0;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-item:hover {
+  border-color: var(--accent-teal);
+}
+
+.history-item-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-teal-tint);
+  color: var(--accent-teal);
+  flex-shrink: 0;
+}
+
+.history-item-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-meta h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-subline {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.history-item-subline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.history-item-delete {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+.history-item:hover .history-item-delete {
+  opacity: 1;
+}
+
+.history-item-delete:hover {
+  background: var(--bg-tertiary);
+  color: #f87171;
+}
+
+@media (max-width: 768px) {
+  .history-page {
+    padding: 16px;
+  }
+}

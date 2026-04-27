@@ -1,0 +1,136 @@
+.agent-actions-disabled-wrap {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.agent-actions-disabled-wrap p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.agent-actions-wrap {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.agent-actions-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  background: #1a1a1a;
+  color: #b0b0b0;
+  font-size: 12px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.agent-chip:hover {
+  border-color: #1abc9c;
+  color: #1abc9c;
+}
+
+.agent-chip.back {
+  border-color: #2a2a2a;
+}
+
+.agent-chip.persona {
+  background: rgba(26, 188, 156, 0.12);
+  border-color: #1abc9c;
+  color: #1abc9c;
+  font-weight: 600;
+}
+
+.agent-chip.persona:hover {
+  background: #1abc9c;
+  color: #04261f;
+}
+
+.agent-persona-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+
+.agent-persona-modal {
+  width: 100%;
+  max-width: 860px;
+  border-radius: 12px;
+  border: 1px solid #1a1a1a;
+  background: #0d0d0d;
+  padding: 18px;
+}
+
+.agent-persona-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.agent-persona-header h3 {
+  margin: 0;
+  color: #fff;
+}
+
+.agent-persona-header button {
+  border: none;
+  background: transparent;
+  color: #b0b0b0;
+  cursor: pointer;
+}
+
+.agent-persona-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agent-persona-card {
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+  background: #1a1a1a;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-persona-card h4 {
+  margin: 2px 0;
+  color: #fff;
+}
+
+.agent-persona-card p {
+  margin: 0;
+  color: #b0b0b0;
+  font-size: 12px;
+}
+
+.agent-persona-icon {
+  font-size: 26px;
+}
+
+@media (max-width: 760px) {
+  .agent-persona-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -214,6 +214,79 @@
   margin: 12px 0;
 }
 
+.user-profile-section {
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+  padding: 12px;
+  position: relative;
+}
+
+.profile-button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.profile-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.profile-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.profile-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.profile-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 12px;
+  right: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.profile-dropdown-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.profile-dropdown-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.profile-dropdown-item.logout {
+  color: #f87171;
+}
+
+.profile-dropdown-item.logout:hover {
+  color: #fca5a5;
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
