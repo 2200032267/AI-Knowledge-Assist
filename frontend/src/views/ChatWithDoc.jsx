@@ -8,7 +8,7 @@ import MessageRenderer from "../components/MessageRenderer";
 import StreamingText from "../components/StreamingText";
 import "./ChatWithDoc.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 const DEFAULT_ENABLED_ACTIONS = ["summarize", "study_notes", "key_points", "faq", "action_items"];
 
 function cosineSimilarity(vecA, vecB) {

@@ -18,7 +18,7 @@ import {
   logoutUserSession,
 } from "./auth";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 const NAV_ITEMS = [
   { id: "general", label: "General Mode", mode: "general" },
@@ -233,6 +233,7 @@ export default function App() {
 
   const chatEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
 
   const userId = currentUser?.id || null;
 
@@ -281,12 +282,31 @@ export default function App() {
     return "Ask about your document or start general chat...";
   }, [currentMode, uploadedDoc]);
 
-  const showToast = (type, message) => {
+  const showToast = (type, message, options = {}) => {
+    const { duration = 4000 } = options;
+
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+
     setToast({ type, message });
-    window.setTimeout(() => {
-      setToast(null);
-    }, 4000);
+
+    if (duration !== null) {
+      toastTimeoutRef.current = window.setTimeout(() => {
+        setToast(null);
+        toastTimeoutRef.current = null;
+      }, duration);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLogout = (reason) => {
     logoutUserSession();
@@ -715,6 +735,7 @@ export default function App() {
     }
 
     setSending(true);
+    showToast("info", "Waking up server... this can take 30s the first time", { duration: null });
     try {
       let endpoint = "chat";
       let payload = { question: text };
@@ -733,6 +754,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      setToast(null);
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
 
       const data = await safeJson(res);
       if (!res.ok) {
@@ -765,6 +792,11 @@ export default function App() {
         return next;
       });
     } catch {
+      setToast(null);
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
       const assistantError = {
         id: `msg_${Date.now()}_assistant`,
         role: "assistant",

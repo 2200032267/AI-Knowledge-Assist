@@ -22,7 +22,12 @@ app = FastAPI(title="AI Knowledge Assistant")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://ai-knowledge-assist.vercel.app",
+        "https://ai-knowledge-assist-42vr27gku-vighneshs-projects-b43ba670.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

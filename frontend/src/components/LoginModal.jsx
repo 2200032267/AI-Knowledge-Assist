@@ -21,7 +21,7 @@ export default function LoginModal({
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const resolvedApiBase = apiBase || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+  const resolvedApiBase = apiBase || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
