@@ -1,11 +1,16 @@
-📚 AI Knowledge Assistant – Full-Stack RAG Application
-🚀 Project Overview
+#📚 AI Knowledge Assistant – Full-Stack RAG Application
+
+##🚀 Project Overview
+
 A responsive and feature-rich Full-Stack AI Knowledge Assistant built using React + FastAPI. It includes PDF document upload, Retrieval-Augmented Generation with dual storage, chat with documents, agent mode for summaries/notes, tunable RAG settings, and LLM integration via OpenRouter API.
 
-🔗 Project Links
-🔗 Live Site (Vercel + Render): Click Here
-📰 LinkedIn Article: Click Here [blocked]
-📹 Video Demo: Click Here [blocked]
+---
+
+#🔗 Project Links
+- 🔗 Live Site (Vercel + Render): Click Here
+
+---
+
 📰 Introduction
 This AI Knowledge Assistant is a full-stack application that allows users to upload PDF documents and ask questions grounded in their content. Built with React, FastAPI, and OpenRouter LLMs, it implements RAG using two independent systems: backend in-memory Counter vectors and frontend 384-dim embeddings in browser storage. The architecture demonstrates custom RAG mechanics, dual persistence patterns, and deployment on free-tier cloud services while handling Render sleep cycles and browser storage limits.
 
