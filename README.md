@@ -1,4 +1,4 @@
-#📚 AI Knowledge Assistant – Full-Stack RAG Application
+### 📚 AI Knowledge Assistant – Full-Stack RAG Application
 
 ##🚀 Project Overview
 
@@ -6,7 +6,7 @@ A responsive and feature-rich Full-Stack AI Knowledge Assistant built using Reac
 
 ---
 
-#🔗 Project Links
+##🔗 Project Links
 - 🔗 Live Site (Vercel + Render): Click Here
 
 ---
