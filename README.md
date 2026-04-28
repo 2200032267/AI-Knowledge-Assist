@@ -114,7 +114,7 @@ Backend Storage
 ## 📸 Screenshots
 
 **Final Outputs**
-[Click Here](View Outputs/)
+[clich here](View Outputs/)
 
 ---
 
