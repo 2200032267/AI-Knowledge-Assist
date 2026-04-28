@@ -1,254 +1,388 @@
-import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Menu, X, Layers, Code, FileText, Scissors, Circle, Database, Search, 
+  Cpu, MessageSquare, ArrowRight, Github, ChevronRight, Book, Zap,
+  Sparkles, Bot, FileStack, Server, Box, Braces, Binary
+} from 'lucide-react';
 
-const AuthModal = ({ onClose, onLogin }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: ''
-  });
+const DocsPage = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('docs');
+  const navigate = useNavigate();
 
-  // Get all users from localStorage
-  const getUsers = () => JSON.parse(localStorage.getItem('users') || '[]');
-  
-  const saveUsers = (users) => localStorage.setItem('users', JSON.stringify(users));
-
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const { name, email, password } = formData;
-
-    // 1. VALIDATION
-    if (!validateEmail(email)) {
-      toast.error('Please enter a valid email', {
-        style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters', {
-        style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-      });
-      return;
-    }
-
-    const users = getUsers();
-
-    // 2. SIGN UP LOGIC
-    if (isSignUp) {
-      if (!name.trim()) {
-        toast.error('Please enter your name', {
-          style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-        });
-        return;
-      }
-
-      // Check if email already exists
-      if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-        toast.error('Email already exists. Try signing in instead', {
-          style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-        });
-        return;
-      }
-
-      // Create new user
-      const newUser = {
-        id: Date.now().toString(),
-        name: name.trim(),
-        email: email.toLowerCase(),
-        password, // In prod: hash this. For localStorage demo it's ok
-        createdAt: new Date().toISOString()
-      };
-
-      users.push(newUser);
-      saveUsers(users);
+  // Scroll spy for active nav
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = ['docs', 'features', 'architecture', 'stack', 'how-it-works'];
+      const scrollY = window.scrollY + 100;
       
-      // Auto login after signup
-      loginUser(newUser);
-      toast.success(`Welcome, ${newUser.name}!`, {
-        style: { background: '#1ABC9C', color: '#000' }
-      });
-      return;
-    }
-
-    // 3. SIGN IN LOGIC
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-      toast.error('No account found with this email', {
-        style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-      });
-      return;
-    }
-
-    if (user.password !== password) {
-      toast.error('Incorrect password. Please try again', {
-        style: { background: '#1A1A1A', color: '#fff', border: '1px solid #2A2A2A' }
-      });
-      return;
-    }
-
-    // Login success
-    loginUser(user);
-    toast.success(`Welcome back, ${user.name}!`, {
-      style: { background: '#1ABC9C', color: '#000' }
-    });
-  };
-
-  // REMEMBER ME: localStorage = persistent, sessionStorage = tab only
-  const loginUser = (user) => {
-    if (rememberMe) {
-      localStorage.setItem('session', user.id); // Persists after browser close
-      localStorage.setItem('rememberMe', 'true');
-    } else {
-      sessionStorage.setItem('session', user.id); // Clears on tab close
-      localStorage.removeItem('rememberMe');
-    }
-    onLogin(user);
-    onClose();
-  };
-
-  // Auto-fill email if remembered
-  React.useEffect(() => {
-    const remembered = localStorage.getItem('rememberMe');
-    if (remembered) setRememberMe(true);
+      for (const section of sections) {
+        const el = document.getElementById(section);
+        if (el && scrollY >= el.offsetTop && scrollY < el.offsetTop + el.offsetHeight) {
+          setActiveSection(section);
+          break;
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Intersection Observer for fade-in
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry, idx) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => entry.target.classList.add('visible'), idx * 100);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (id) => {
+    setMobileMenuOpen(false);
+    const el = document.getElementById(id);
+    if (el) {
+      const offset = 80;
+      window.scrollTo({ top: el.offsetTop - offset, behavior: 'smooth' });
+    }
+  };
+
+  const navLinks = [
+    { id: 'docs', label: 'Docs' },
+    { id: 'features', label: 'Features' },
+    { id: 'architecture', label: 'Architecture' },
+    { id: 'stack', label: 'Tech Stack' },
+    { id: 'how-it-works', label: 'How It Works' },
+  ];
+
+  const features = [
+    {
+      icon: FileText,
+      title: 'Document Chat',
+      desc: 'Upload any PDF and have natural conversations grounded in the document content.',
+      points: ['Upload PDF with drag & drop', 'Ask questions in natural language', 'Full RAG pipeline with citations', 'Zero hallucination guarantee']
+    },
+    {
+      icon: MessageSquare,
+      title: 'General Chat',
+      desc: 'Direct LLM queries for open-ended questions, brainstorming, and creative tasks.',
+      points: ['Direct access to GPT-4/Claude', 'Multi-turn conversation support', 'System prompt customization', 'Streaming token responses']
+    },
+    {
+      icon: Sparkles,
+      title: 'Smart Agent',
+      desc: 'Rule-based actions that combine retrieval with structured outputs.',
+      points: ['One-click summarization', 'Generate study notes & flashcards', 'Extract key entities & dates', 'Rule-based guardrails']
+    }
+  ];
+
+  const architectureSteps = [
+    { icon: Layers, title: 'Frontend - React', desc: 'Modern UI for document upload, chat interface, and mode selection with real-time streaming' },
+    { icon: Server, title: 'FastAPI Backend', desc: 'High-performance async API handling document processing, embeddings, and LLM orchestration' },
+    { icon: FileText, title: 'Document Loader', desc: 'Extract text, tables, and metadata from PDFs using PyPDF and LangChain loaders' },
+    { icon: Scissors, title: 'Text Chunking', desc: 'Recursive character splitter with overlap to preserve context across segments' },
+    { icon: Binary, title: 'Embeddings', desc: 'Generate dense vectors using OpenAI, Cohere, or open-source BGE models' },
+    { icon: Database, title: 'Vector Store', desc: 'Store embeddings in ChromaDB/Pinecone for efficient semantic similarity search' },
+    { icon: Search, title: 'Retriever', desc: 'Top-K search with MMR and reranking to fetch most relevant context chunks' },
+    { icon: Cpu, title: 'LLM Query', desc: 'Query GPT-4, Claude, or local models with retrieved context injected' },
+    { icon: MessageSquare, title: 'Response', desc: 'Stream grounded answers with source citations back to user' },
+  ];
+
+  const techStack = [
+    { name: 'React', icon: '⚛️' },
+    { name: 'FastAPI', icon: '🚀' },
+    { name: 'Python', icon: '🐍' },
+    { name: 'LangChain', icon: '🦜' },
+    { name: 'ChromaDB', icon: '🗄️' },
+    { name: 'OpenRouter', icon: '🔗' },
+    { name: 'Tailwind CSS', icon: '🎨' },
+  ];
+
+  const pipelineSteps = [
+    { icon: FileStack, title: 'Upload', desc: 'PDF ingestion' },
+    { icon: Scissors, title: 'Chunk', desc: 'Split into segments' },
+    { icon: Binary, title: 'Embed', desc: 'Create vectors' },
+    { icon: Search, title: 'Retrieve', desc: 'Semantic search' },
+    { icon: FileText, title: 'Prompt', desc: 'Inject context' },
+    { icon: MessageSquare, title: 'Answer', desc: 'Grounded response' },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0D0D0D] border border-[#2A2A2A] rounded-2xl w-full max-w-md p-8 relative">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 text-[#B0B0B0] hover:text-white transition"
-        >
-          <X size={20} />
-        </button>
-
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-[#1ABC9C] rounded-xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-white">Welcome to AI Knowledge Assistant</h2>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-[#2A2A2A] mb-6">
-          <button
-            onClick={() => setIsSignUp(false)}
-            className={`flex-1 py-3 text-sm font-medium transition ${
-              !isSignUp 
-              ? 'text-[#1ABC9C] border-b-2 border-[#1ABC9C]' 
-                : 'text-[#B0B0B0] hover:text-white'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setIsSignUp(true)}
-            className={`flex-1 py-3 text-sm font-medium transition ${
-              isSignUp 
-              ? 'text-[#1ABC9C] border-b-2 border-[#1ABC9C]' 
-                : 'text-[#B0B0B0] hover:text-white'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <div>
-              <label className="block text-sm text-[#B0B0B0] mb-2">Full Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B0B0]" size={18} />
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="John Doe"
-                  className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-white rounded-lg pl-10 pr-4 py-3 
-                           focus:border-[#1ABC9C] focus:ring-1 focus:ring-[#1ABC9C] outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm text-[#B0B0B0] mb-2">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B0B0]" size={18} />
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                placeholder="you@example.com"
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-white rounded-lg pl-10 pr-4 py-3 
-                         focus:border-[#1ABC9C] focus:ring-1 focus:ring-[#1ABC9C] outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-[#B0B0B0] mb-2">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B0B0]" size={18} />
-              <input
-                type={showPassword? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                placeholder="••••"
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] text-white rounded-lg pl-10 pr-10 py-3 
-                         focus:border-[#1ABC9C] focus:ring-1 focus:ring-[#1ABC9C] outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B0B0B0] hover:text-white"
-              >
-                {showPassword? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          {!isSignUp && (
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 accent-[#1ABC9C] rounded bg-[#1A1A1A] border-[#2A2A2A]"
-                />
-                <span className="text-sm text-[#B0B0B0]">Remember me</span>
-              </label>
-              {/* REMOVED: Forgot password - can't work without backend */}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="w-full bg-[#1ABC9C] text-black font-semibold py-3 rounded-lg hover:bg-[#16A085] transition"
-          >
-            {isSignUp? 'Create Account' : 'Sign In'}
-          </button>
-        </form>
-
-        {/* REMOVED: Google/GitHub buttons - needs OAuth backend */}
-        
-        <p className="text-xs text-[#666] text-center mt-6">
-          By continuing you agree to our <span className="text-[#1ABC9C]">Terms</span> and <span className="text-[#1ABC9C]">Privacy Policy</span>
-        </p>
+    <div className="min-h-screen bg-[#0A0A0A] text-white font-['Inter'] overflow-x-hidden">
+      {/* Background Glow */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[20%] left-[20%] w- h- bg-[#1ABC9C]/10 rounded-full blur-" />
+        <div className="absolute bottom-[20%] right-[20%] w- h- bg-[#1ABC9C]/5 rounded-full blur-" />
       </div>
+
+      {/* Navbar */}
+      <nav className="fixed top-0 w-full bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-[#2A2A2A] z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Logo - Fixed alignment */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-[#1ABC9C] rounded-lg flex items-center justify-center">
+              <Layers size={18} className="text-black" />
+            </div>
+            <span className="text-xl font-bold text-white">AI Knowledge Assistant</span>
+          </div>
+
+          {/* Desktop Nav - Center to right */}
+          <ul className="hidden md:flex items-center gap-8">
+            {navLinks.map(link => (
+              <li key={link.id}>
+                <button
+                  onClick={() => scrollToSection(link.id)}
+                  className={`text-sm font-medium transition-colors ${
+                    activeSection === link.id 
+                   ? 'text-[#1ABC9C]' 
+                    : 'text-[#B0B0B0] hover:text-white'
+                  }`}
+                >
+                  {link.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Mobile Menu */}
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden text-white"
+          >
+            {mobileMenuOpen? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+
+        {/* Mobile Nav */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#2A2A2A] px-6 py-4">
+            {navLinks.map(link => (
+              <button
+                key={link.id}
+                onClick={() => scrollToSection(link.id)}
+                className="block w-full text-left py-3 text-[#B0B0B0] hover:text-white"
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
+      {/* 1. DOCS SECTION */}
+      <section id="docs" className="min-h- flex items-center pt-20 pb-16">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#1ABC9C]/10 border border-[#1ABC9C]/30 rounded-full text-sm text-[#1ABC9C] mb-6 fade-in">
+            <div className="w-1.5 h-1.5 bg-[#1ABC9C] rounded-full animate-pulse" />
+            Open Source • Production Ready
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-4 text-white fade-in">
+            AI Knowledge Assistant
+          </h1>
+          
+          <p className="text-xl md:text-2xl font-semibold text-white mb-4 fade-in">
+            RAG + LLM + Smart Actions in One Platform
+          </p>
+          
+          <p className="text-lg text-[#B0B0B0] max-w-2xl mx-auto leading-relaxed fade-in">
+            Upload PDFs, ask questions, and get context-aware answers with zero hallucination. 
+            Built with Retrieval-Augmented Generation to ground every response in your documents, 
+            plus intelligent agent actions for summarizing and note generation.
+          </p>
+        </div>
+      </section>
+
+      {/* GET STARTED BUTTON - Between Docs & Features */}
+      <div className="flex justify-center py-8 fade-in">
+        <button
+          onClick={() => navigate('/')}
+          className="bg-[#1ABC9C] text-black font-semibold px-8 py-3 rounded-lg hover:bg-[#16A085] transition-all duration-300 shadow-[0_0_30px_rgba(26,188,156,0.3)] hover:shadow-[0_0_40px_rgba(26,188,156,0.5)] hover:-translate-y-0.5"
+        >
+          Get Started Free
+        </button>
+      </div>
+
+      {/* 2. FEATURES */}
+      <section id="features" className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16 fade-in">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Three Powerful Modes</h2>
+            <p className="text-lg text-[#B0B0B0]">Flexible AI interactions tailored to your workflow</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {features.map((feature, idx) => (
+              <div 
+                key={idx}
+                className="fade-in bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 hover:border-[#1ABC9C]/50 hover:shadow-[0_0_30px_rgba(26,188,156,0.1)] transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="w-14 h-14 bg-[#1ABC9C] rounded-xl flex items-center justify-center mb-6">
+                  <feature.icon size={28} className="text-black" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4 text-white">{feature.title}</h3>
+                <p className="text-[#B0B0B0] mb-6 leading-relaxed">{feature.desc}</p>
+                <ul className="space-y-3">
+                  {feature.points.map((point, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-[#B0B0B0]">
+                      <div className="w-1.5 h-1.5 bg-[#1ABC9C] rounded-full mt-2 flex-shrink-0" />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 3. ARCHITECTURE - FIXED NEW DESIGN */}
+      <section id="architecture" className="py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-16 fade-in">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">System Architecture</h2>
+            <p className="text-lg text-[#B0B0B0]">End-to-end RAG pipeline from ingestion to response</p>
+          </div>
+
+          {/* New Clean Vertical Flow - No overlap */}
+          <div className="space-y-4">
+            {architectureSteps.map((step, idx) => (
+              <div 
+                key={idx}
+                className="fade-in bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 flex items-start gap-4 hover:border-[#1ABC9C]/50 transition-all duration-300"
+              >
+                <div className="w-12 h-12 bg-[#1ABC9C]/10 border border-[#1ABC9C]/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <step.icon size={24} className="text-[#1ABC9C]" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-xs font-mono text-[#1ABC9C]">0{idx + 1}</span>
+                    <h3 className="text-lg font-semibold text-white">{step.title}</h3>
+                  </div>
+                  <p className="text-sm text-[#B0B0B0]">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. TECH STACK */}
+      <section id="stack" className="py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16 fade-in">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Tech Stack</h2>
+            <p className="text-lg text-[#B0B0B0]">Built with modern, production-ready technologies</p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-4">
+            {techStack.map((tech, idx) => (
+              <div 
+                key={idx}
+                className="fade-in bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-6 py-4 flex items-center gap-3 hover:border-[#1ABC9C]/50 hover:shadow-[0_0_20px_rgba(26,188,156,0.1)] transition-all duration-300 hover:-translate-y-1"
+              >
+                <span className="text-2xl">{tech.icon}</span>
+                <span className="font-semibold text-white">{tech.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 5. HOW IT WORKS */}
+      <section id="how-it-works" className="py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16 fade-in">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">How RAG Works</h2>
+            <p className="text-lg text-[#B0B0B0]">Retrieval-Augmented Generation ensures grounded, accurate responses</p>
+          </div>
+
+          {/* Pipeline with BRIGHT teal arrows + animation */}
+          <div className="flex flex-wrap justify-center items-center gap-4 md:gap-6 mb-16">
+            {pipelineSteps.map((step, idx) => (
+              <React.Fragment key={idx}>
+                <div className="fade-in flex flex-col items-center text-center min-w-">
+                  <div className="w-20 h-20 bg-[#1A1A1A] border-2 border-[#2A2A2A] rounded-2xl flex items-center justify-center mb-3 hover:border-[#1ABC9C] hover:shadow-[0_0_30px_rgba(26,188,156,0.2)] transition-all duration-300">
+                    <step.icon size={32} className="text-[#1ABC9C]" />
+                  </div>
+                  <p className="font-semibold text-white text-sm mb-1">{step.title}</p>
+                  <p className="text-xs text-[#B0B0B0]">{step.desc}</p>
+                </div>
+                {idx < pipelineSteps.length - 1 && (
+                  <ChevronRight 
+                    size={24} 
+                    className="text-[#1ABC9C] animate-pulse hidden md:block" 
+                    style={{ filter: 'drop-shadow(0 0 8px #1ABC9C)' }}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Code Block */}
+          <div className="fade-in bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl overflow-hidden max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 px-6 py-4 bg-[#0D0D0D] border-b border-[#2A2A2A]">
+              <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
+              <div className="w-3 h-3 rounded-full bg-[#F59E0B]" />
+              <div className="w-3 h-3 rounded-full bg-[#10B981]" />
+              <span className="ml-3 text-sm text-[#B0B0B0] font-mono">prompt_engineering.py</span>
+            </div>
+            <pre className="p-6 overflow-x-auto text-sm leading-relaxed">
+              <code className="font-mono text-[#E2E8F0]">
+                <span className="text-[#C084FC]">SYSTEM_PROMPT</span> = <span className="text-[#34D399]">"""</span>{'\n'}
+                <span className="text-[#34D399]">You are a helpful AI assistant with access to document context.</span>{'\n\n'}
+                <span className="text-[#34D399]">CRITICAL GUARDRAILS:</span>{'\n'}
+                <span className="text-[#34D399]">1. Answer ONLY from the provided context below</span>{'\n'}
+                <span className="text-[#34D399]">2. If context doesn't contain answer, say: "Cannot find in document"</span>{'\n'}
+                <span className="text-[#34D399]">3. Always cite sources: [Page X, Section Y]</span>{'\n'}
+                <span className="text-[#34D399]">4. Do not use prior knowledge or make assumptions</span>{'\n\n'}
+                <span className="text-[#34D399]">Context:</span>{'\n'}
+                <span className="text-[#34D399]">{'{retrieved_context}'}</span>{'\n\n'}
+                <span className="text-[#34D399]">Question: {'{user_question}'}</span>{'\n'}
+                <span className="text-[#34D399]">"""</span>{'\n\n'}
+                <span className="text-[#64748B]"># Ensures zero hallucination by grounding responses</span>
+              </code>
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER - For Landing Page Only */}
+      <footer className="border-t border-[#2A2A2A] py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#1ABC9C] rounded-lg flex items-center justify-center">
+                <Layers size={18} className="text-black" />
+              </div>
+              <span className="text-xl font-bold text-white">AI Knowledge Assistant</span>
+            </div>
+            <p className="text-sm text-[#B0B0B0]">© 2026 Developed by N Vighnesh. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+
+      <style jsx>{`
+       .fade-in {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+       .fade-in.visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      `}</style>
     </div>
   );
 };
 
-export default AuthModal;
+export default DocsPage;

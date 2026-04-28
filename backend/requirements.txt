@@ -4,3 +4,11 @@ requests
 python-dotenv
 pypdf
 python-multipart
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+chromadb==0.5.5
+langchain==0.2.16
+langchain-openai==0.1.25
+python-dotenv==1.0.1

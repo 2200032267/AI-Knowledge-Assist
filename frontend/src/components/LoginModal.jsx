@@ -297,6 +297,11 @@ export default function LoginModal({
           <div className="terms">
             By continuing you agree to <span className="link">Terms</span> and <span className="link">Privacy Policy</span>
           </div>
+          
+          {/* Footer shown on login/create account modal only */}
+          <div className="modal-footer">
+            <p className="text-sm text-[#B0B0B0]">© 2026 Developed by N Vighnesh. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </div>

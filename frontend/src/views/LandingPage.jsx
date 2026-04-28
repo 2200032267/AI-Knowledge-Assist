@@ -45,26 +45,10 @@ export default function LandingPage({
                   <path d="M2 12l10 5 10-5"></path>
                 </svg>
               </div>
-              AI Knowledge Assistant
+              <span>AI Knowledge Assistant</span>
             </div>
 
-            <ul className="nav-links" aria-label="Primary">
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  Features
-                </a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  Pricing
-                </a>
-              </li>
-              <li>
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  Docs
-                </a>
-              </li>
-            </ul>
+
 
             <button className="nav-btn" onClick={() => openModal()} id="navLoginBtn">
               Sign In
@@ -94,6 +78,20 @@ export default function LandingPage({
             Get Started Free
           </button>
         </main>
+
+        <footer className="landing-footer">
+          <div className="landing-footer-brand">
+            <div className="landing-footer-logo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+              </svg>
+            </div>
+            <span>AI Knowledge Assistant</span>
+          </div>
+          <p>© 2026 Developed by N Vighnesh. All rights reserved.</p>
+        </footer>
       </div>
 
       {showLogin && (

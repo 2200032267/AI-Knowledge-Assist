@@ -222,7 +222,6 @@
 
 .user-profile-section {
   margin-top: auto;
-  border-top: 1px solid var(--border-color);
   padding: 12px;
   position: relative;
 }
@@ -246,12 +245,17 @@
 }
 
 .profile-chevron {
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
+  color: var(--accent-teal);
+  transition: transform 0.2s ease, color 0.15s ease;
 }
 
 .profile-chevron.rotated {
   transform: rotate(180deg);
+}
+
+/* Ensure chevron contrast on hover and when dropdown is open */
+.profile-button:hover .profile-chevron {
+  color: var(--accent-teal-hover);
 }
 
 .profile-dropdown {
