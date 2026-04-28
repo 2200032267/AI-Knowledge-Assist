@@ -114,7 +114,7 @@ Backend Storage
 ## 📸 Screenshots
 
 **Final Outputs**
-[Click Here] (blocked/)
+[Click Here] (View Outputs/)
 
 ---
 
